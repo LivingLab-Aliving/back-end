@@ -15,7 +15,7 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // 우선 모두 허용 (나중에 변경)
+                        .anyRequest().permitAll() // 개발용으로 모두 허용 해놨음
                 )
                 .oauth2Login(oauth -> oauth
                         .defaultSuccessUrl("/", true)
