@@ -5,18 +5,21 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import yuseong.com.guchung.admin.model.Admin;
+import yuseong.com.guchung.admin.repository.AdminRepository;
 import yuseong.com.guchung.auth.model.Instructor;
-import yuseong.com.guchung.program.model.Program;
 import yuseong.com.guchung.auth.model.User;
+import yuseong.com.guchung.auth.repository.InstructorRepository;
+import yuseong.com.guchung.auth.repository.UserRepository;
+import yuseong.com.guchung.client.S3Uploader;
 import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.program.dto.ProgramResponseDto;
-import yuseong.com.guchung.admin.repository.AdminRepository;
-import yuseong.com.guchung.auth.repository.InstructorRepository;
-import yuseong.com.guchung.program.repository.ProgramRepository;
-import yuseong.com.guchung.auth.repository.UserRepository;
+import yuseong.com.guchung.program.model.Program;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
+import yuseong.com.guchung.program.repository.ProgramRepository;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,10 +32,10 @@ public class ProgramService {
     private final AdminRepository adminRepository;
     private final InstructorRepository instructorRepository;
     private final UserRepository userRepository;
+    private final S3Uploader s3Uploader;
 
-    // 프로그램 생성
     @Transactional
-    public Long createProgram(ProgramRequestDto.Create requestDto, Long adminId) {
+    public Program createProgram(ProgramRequestDto.Create requestDto, MultipartFile file, Long adminId) {
 
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new IllegalArgumentException("관리자 정보를 찾을 수 없습니다."));
@@ -45,6 +48,18 @@ public class ProgramService {
 
         if (checkProgramName(requestDto.getProgramName())) {
             throw new IllegalArgumentException("이미 존재하는 프로그램명입니다.");
+        }
+
+        String uploadedFileUrl = null;
+
+        if (file != null && !file.isEmpty()) {
+            try {
+                uploadedFileUrl = s3Uploader.uploadFile(file, "program");
+            } catch (IOException e) {
+                throw new RuntimeException("S3 파일 업로드에 실패했습니다.", e);
+            }
+        } else {
+            uploadedFileUrl = requestDto.getClassPlanUrl();
         }
 
         Program program = Program.builder()
@@ -63,15 +78,14 @@ public class ProgramService {
                 .description(requestDto.getDescription())
                 .info(requestDto.getInfo())
                 .etc(requestDto.getEtc())
-                .classPlanUrl(requestDto.getClassPlanUrl())
+                .classPlanUrl(uploadedFileUrl)
                 .institution(requestDto.getInstitution())
                 .regionRestriction(requestDto.getRegionRestriction())
                 .admin(admin)
                 .instructor(instructor)
                 .build();
 
-        Program savedProgram = programRepository.save(program);
-        return savedProgram.getProgramId();
+        return programRepository.save(program);
     }
 
     public boolean checkProgramName(String programName) {
@@ -120,7 +134,6 @@ public class ProgramService {
             } else if (userAddress.contains("대덕구")) {
                 allowedRegions.add(RegionRestriction.DAEDEOK);
             }
-            // 향후 "대전광역시" 전체 등 더 넓은 범위의 로직 추가 해야됨
         }
 
         Page<Program> programsPage = programRepository.findByRegionRestrictionIn(allowedRegions, pageable);

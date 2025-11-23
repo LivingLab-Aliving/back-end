@@ -13,10 +13,12 @@ public class ProgramResponseDto {
     public static class CreateResponse {
         private Long programId;
         private String applicationFormUrl;
+        private String classPlanUrl;
 
-        public CreateResponse(Long programId, String applicationFormUrl) {
+        public CreateResponse(Long programId, String applicationFormUrl, String classPlanUrl) {
             this.programId = programId;
             this.applicationFormUrl = applicationFormUrl;
+            this.classPlanUrl = classPlanUrl;
         }
     }
 
@@ -30,6 +32,7 @@ public class ProgramResponseDto {
         private int eduPrice;
         private int capacity;
         private String institution;
+        private String classPlanUrl;
 
         public ListResponse(Program entity) {
             this.programId = entity.getProgramId();
@@ -40,6 +43,7 @@ public class ProgramResponseDto {
             this.eduPrice = entity.getEduPrice();
             this.capacity = entity.getCapacity();
             this.institution = entity.getInstitution();
+            this.classPlanUrl = entity.getClassPlanUrl();
         }
     }
 

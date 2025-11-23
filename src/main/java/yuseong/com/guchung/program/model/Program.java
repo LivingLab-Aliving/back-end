@@ -68,7 +68,7 @@ public class Program {
     @Lob
     private String etc;
 
-    @Column(name = "class_plan_url")
+    @Column(name = "class_plan_url", length = 512)
     private String classPlanUrl;
 
     private String institution;
