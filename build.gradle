@@ -41,6 +41,10 @@ dependencies {
 
     implementation 'com.amazonaws:aws-java-sdk-s3:1.12.696'
 
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    implementation 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
 
     // 카카오 로그인 구현용 임시
     // implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'

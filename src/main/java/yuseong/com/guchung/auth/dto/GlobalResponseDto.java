@@ -14,7 +14,6 @@ public class GlobalResponseDto<T> {
         return new GlobalResponseDto<>(200, message, data);
     }
 
-    public static <T> GlobalResponseDto<T> error(String message) {
+    public static <T> GlobalResponseDto<T> fail(String message) {
         return new GlobalResponseDto<>(400, message, null);
-    }
-}
+    }}
