@@ -56,11 +56,14 @@ public class S3Uploader {
 
     public S3Object getS3Object(String fileUrl) {
         String key = extractKeyFromUrl(fileUrl);
+
         if (key == null) {
+            log.error("Failed to extract key from URL: {}", fileUrl);
             throw new IllegalArgumentException("유효하지 않은 S3 파일 URL입니다.");
         }
 
         if (!amazonS3.doesObjectExist(bucket, key)) {
+            log.error("S3 Object not found with key: {}", key);
             throw new IllegalArgumentException("S3에서 파일을 찾을 수 없습니다.");
         }
 
@@ -75,20 +78,23 @@ public class S3Uploader {
     private String extractKeyFromUrl(String fileUrl) {
         String key = null;
         try {
-            String decodedUrl = URLDecoder.decode(fileUrl, StandardCharsets.UTF_8.toString());
+            String urlString = fileUrl;
 
-            String bucketPath = "/" + bucket + "/";
-            int index = decodedUrl.indexOf(bucketPath);
+            String s3DomainSegment = ".amazonaws.com/";
+            int index = urlString.indexOf(s3DomainSegment);
 
             if (index == -1) {
-                log.warn("Cannot find bucket path in URL: {}", fileUrl);
+                log.warn("Cannot find S3 domain segment in URL: {}", fileUrl);
                 return null;
             }
 
-            key = decodedUrl.substring(index + bucketPath.length());
+            String encodedKey = urlString.substring(index + s3DomainSegment.length());
+
+            key = URLDecoder.decode(encodedKey, StandardCharsets.UTF_8.toString());
 
         } catch (Exception e) {
-            log.error("Failed to extract key from URL: {}", fileUrl, e);
+            log.error("Failed to extract and decode key from URL: {}", fileUrl, e);
+            return null;
         }
         return key;
     }

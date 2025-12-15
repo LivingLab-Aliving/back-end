@@ -18,10 +18,10 @@ public class ProgramFile {
     @Column(name = "program_file_id")
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "original_name", nullable = false)
     private String originalName;
 
-    @Column(nullable = false, length = 512)
+    @Column(name = "file_url", nullable = false, length = 512)
     private String fileUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)

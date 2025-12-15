@@ -49,7 +49,6 @@ public class ProgramService {
     private final ProgramLikeRepository programLikeRepository;
     private final ProgramFileRepository programFileRepository;
 
-
     public static class FileDownloadInfo {
         private final Resource resource;
         private final String originalFileName;
@@ -155,7 +154,7 @@ public class ProgramService {
 
                     } catch (IOException e) {
                         log.error("S3 증빙 파일 업로드 실패: {}", file.getOriginalFilename(), e);
-                        throw new RuntimeException("S3 증빙 파일 업로드 중 오류가 발생했습니다.", e);
+                        throw new RuntimeException("S3 증빙 파일 업로드에 실패했습니다.", e);
                     }
                 }
             }
@@ -229,6 +228,7 @@ public class ProgramService {
         program.setClassPlanUrl(updatedClassPlanUrl);
         program.setClassPlanOriginalName(updatedClassPlanOriginalName);
 
+
         Instructor instructor = null;
         if (requestDto.getInstructorId() != null) {
             instructor = instructorRepository.findById(requestDto.getInstructorId())
@@ -287,6 +287,7 @@ public class ProgramService {
     }
 
     public List<String> extractProofFileUrls(Program program) {
+        // 지연 로딩을 명시적으로 초기화하거나, FetchType.EAGER로 변경해야 컬렉션 접근 가능
         if (program.getAttachedFiles() == null) {
             return java.util.Collections.emptyList();
         }
