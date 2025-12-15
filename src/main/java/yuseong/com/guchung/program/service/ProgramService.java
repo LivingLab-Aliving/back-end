@@ -64,9 +64,12 @@ public class ProgramService {
         }
 
         String classPlanUrl = requestDto.getClassPlanUrl();
+        String classPlanOriginalName = null;
+
         if (classPlanFile != null && !classPlanFile.isEmpty()) {
             try {
                 classPlanUrl = s3Uploader.uploadFile(classPlanFile, "program/classplan");
+                classPlanOriginalName = classPlanFile.getOriginalFilename();
             } catch (IOException e) {
                 log.error("S3 강의계획서 파일 업로드 실패", e);
                 throw new RuntimeException("S3 강의계획서 파일 업로드에 실패했습니다.", e);
@@ -91,6 +94,7 @@ public class ProgramService {
                 .info(requestDto.getInfo())
                 .etc(requestDto.getEtc())
                 .classPlanUrl(classPlanUrl)
+                .classPlanOriginalName(classPlanOriginalName)
                 .institution(requestDto.getInstitution())
                 .regionRestriction(requestDto.getRegionRestriction())
                 .admin(admin)
@@ -129,13 +133,43 @@ public class ProgramService {
     }
 
     @Transactional
-    public Long updateProgram(Long programId, ProgramRequestDto.Update requestDto, Long adminId) {
+    public Long updateProgram(Long programId, ProgramRequestDto.Update requestDto,
+                              MultipartFile newClassPlanFile, Long adminId) {
+
         Program program = programRepository.findById(programId)
                 .orElseThrow(() -> new IllegalArgumentException("수정할 프로그램을 찾을 수 없습니다. ID: " + programId));
 
         if (!program.getAdmin().getAdminId().equals(adminId)) {
             throw new IllegalArgumentException("프로그램을 수정할 권한이 없습니다.");
         }
+
+        String updatedClassPlanUrl = requestDto.getClassPlanUrl();
+        String updatedClassPlanOriginalName = program.getClassPlanOriginalName();
+
+        if (newClassPlanFile != null && !newClassPlanFile.isEmpty()) {
+            try {
+                if (program.getClassPlanUrl() != null) {
+                    s3Uploader.deleteFile(program.getClassPlanUrl());
+                }
+
+                updatedClassPlanUrl = s3Uploader.uploadFile(newClassPlanFile, "program/classplan");
+                updatedClassPlanOriginalName = newClassPlanFile.getOriginalFilename();
+
+            } catch (IOException e) {
+                log.error("S3 강의계획서 파일 업데이트 실패", e);
+                throw new RuntimeException("S3 파일 업데이트에 실패했습니다.", e);
+            }
+        } else if (updatedClassPlanUrl == null || updatedClassPlanUrl.isEmpty()) {
+            if (program.getClassPlanUrl() != null) {
+                log.info("기존 강의계획서 파일 삭제 요청: {}", program.getClassPlanUrl());
+                s3Uploader.deleteFile(program.getClassPlanUrl());
+            }
+            updatedClassPlanOriginalName = null;
+        }
+
+        program.setClassPlanUrl(updatedClassPlanUrl);
+        program.setClassPlanOriginalName(updatedClassPlanOriginalName);
+
 
         Instructor instructor = null;
         if (requestDto.getInstructorId() != null) {
@@ -146,6 +180,20 @@ public class ProgramService {
         program.update(requestDto, instructor);
 
         return program.getProgramId();
+    }
+
+    @Transactional
+    public void deleteProofFile(Long programFileId, Long adminId) {
+        ProgramFile file = programFileRepository.findById(programFileId)
+                .orElseThrow(() -> new IllegalArgumentException("삭제할 파일 정보를 찾을 수 없습니다. ID: " + programFileId));
+
+        if (!file.getProgram().getAdmin().getAdminId().equals(adminId)) {
+            throw new IllegalArgumentException("파일을 삭제할 권한이 없습니다.");
+        }
+
+        s3Uploader.deleteFile(file.getFileUrl());
+
+        programFileRepository.delete(file);
     }
 
     @Transactional

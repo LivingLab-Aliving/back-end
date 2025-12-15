@@ -70,15 +70,31 @@ public class ProgramController {
         return GlobalResponseDto.success("프로그램 생성 완료", response);
     }
 
-    @Operation(summary = "프로그램 정보 수정", description = "기존 프로그램의 정보를 수정합니다. (파일 수정 미포함)")
-    @PutMapping("/{programId}")
+    @Operation(summary = "프로그램 정보 수정", description = "기존 프로그램의 정보를 수정합니다. (강의계획서 파일 포함)")
+    @PutMapping(value = "/{programId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public GlobalResponseDto<Long> updateProgram(
             @Parameter(description = "수정할 프로그램 ID") @PathVariable Long programId,
-            @RequestBody ProgramRequestDto.Update requestDto,
+
+            @Parameter(description = "프로그램 상세 정보 (JSON)", required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
+            @RequestPart(value = "dto") ProgramRequestDto.Update requestDto,
+
+            @Parameter(description = "새 강의계획서 파일 (선택)")
+            @RequestPart(value = "newClassPlanFile", required = false) MultipartFile newClassPlanFile,
+
             @Parameter(description = "관리자 ID") @RequestParam Long adminId
     ) {
-        Long updatedProgramId = programService.updateProgram(programId, requestDto, adminId);
+        Long updatedProgramId = programService.updateProgram(programId, requestDto, newClassPlanFile, adminId);
         return GlobalResponseDto.success("프로그램 수정", updatedProgramId);
+    }
+
+    @Operation(summary = "프로그램 증빙 파일 삭제", description = "특정 증빙 파일을 DB와 S3에서 모두 삭제합니다.")
+    @DeleteMapping("/file/{programFileId}")
+    public GlobalResponseDto<Void> deleteProofFile(
+            @Parameter(description = "삭제할 ProgramFile ID") @PathVariable Long programFileId,
+            @Parameter(description = "관리자 ID", required = true) @RequestParam Long adminId
+    ) {
+        programService.deleteProofFile(programFileId, adminId);
+        return GlobalResponseDto.success("증빙 파일 삭제 완료", null);
     }
 
     @Operation(summary = "프로그램 전체 조회", description = "등록된 모든 프로그램을 페이징하여 조회합니다. 유저 주소에 따라 필터링되고, 좋아요 정보가 포함됩니다. (비로그인 가능)")
@@ -124,7 +140,7 @@ public class ProgramController {
         return GlobalResponseDto.success("프로그램 상세 조회 성공", program);
     }
 
-    @Operation(summary = "프로그램 좋아요 토글", description = "특정 프로그램에 대한 좋아요를 등록하거나 취소합니다.")
+    @Operation(summary = "프로그램 좋아요", description = "특정 프로그램에 대한 좋아요를 등록하거나 취소합니다.")
     @PostMapping("/{programId}/like")
     public GlobalResponseDto<Boolean> toggleProgramLike(
             @Parameter(description = "좋아요 대상 프로그램 ID") @PathVariable Long programId,

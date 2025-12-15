@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import yuseong.com.guchung.admin.model.Admin;
 import yuseong.com.guchung.program.dto.ProgramRequestDto;
@@ -19,6 +20,7 @@ import java.util.List;
 @Entity
 @Getter
 @NoArgsConstructor
+@Setter
 @Table(name = "program")
 public class Program {
 
@@ -71,6 +73,9 @@ public class Program {
 
     @Column(name = "class_plan_url", length = 512)
     private String classPlanUrl;
+
+    @Column(name = "class_plan_original_name", length = 255)
+    private String classPlanOriginalName;
 
     private String institution;
 
@@ -134,7 +139,7 @@ public class Program {
                    LocalDateTime eduEndDate, LocalDateTime recruitStartDate, LocalDateTime recruitEndDate,
                    String eduPlace, int capacity, TargetAudience targetAudience, int eduPrice,
                    String needs, String description, String info, String etc, String classPlanUrl,
-                   String institution, RegionRestriction regionRestriction, Admin admin, Instructor instructor) {
+                   String institution, RegionRestriction regionRestriction, Admin admin, Instructor instructor, String classPlanOriginalName) {
         this.programName = programName;
         this.programType = programType;
         this.eduTime = eduTime;
@@ -156,5 +161,6 @@ public class Program {
         this.regionRestriction = regionRestriction;
         this.admin = admin;
         this.instructor = instructor;
+        this.classPlanOriginalName = classPlanOriginalName;
     }
 }
