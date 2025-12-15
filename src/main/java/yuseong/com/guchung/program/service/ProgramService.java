@@ -49,6 +49,7 @@ public class ProgramService {
     private final ProgramLikeRepository programLikeRepository;
     private final ProgramFileRepository programFileRepository;
 
+
     public static class FileDownloadInfo {
         private final Resource resource;
         private final String originalFileName;
@@ -145,17 +146,20 @@ public class ProgramService {
                         ProgramFile programFile = ProgramFile.builder()
                                 .originalName(file.getOriginalFilename())
                                 .fileUrl(fileUrl)
-                                .program(savedProgram)
                                 .build();
+
+                        programFile.setProgram(savedProgram);
+                        savedProgram.getAttachedFiles().add(programFile);
 
                         programFileRepository.save(programFile);
 
                     } catch (IOException e) {
                         log.error("S3 증빙 파일 업로드 실패: {}", file.getOriginalFilename(), e);
-                        throw new RuntimeException("S3 증빙 파일 업로드에 실패했습니다.", e);
+                        throw new RuntimeException("S3 증빙 파일 업로드 중 오류가 발생했습니다.", e);
                     }
                 }
             }
+            programFileRepository.flush();
         }
 
         return savedProgram;
