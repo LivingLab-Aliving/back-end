@@ -2,10 +2,13 @@ package yuseong.com.guchung.program.dto;
 
 import lombok.Builder;
 import lombok.Getter;
+import yuseong.com.guchung.program.model.Application;
 import yuseong.com.guchung.program.model.Program;
+import yuseong.com.guchung.program.model.type.ApplicationStatus;
 import yuseong.com.guchung.program.model.type.ProgramType;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class ProgramResponseDto {
 
@@ -73,7 +76,7 @@ public class ProgramResponseDto {
         public DetailResponse(Program program, int likeCount, boolean isLiked) {
             this.programId = program.getProgramId();
             this.programName = program.getProgramName();
-            this.thumbnailUrl = program.getThumbnailUrl(); // ✨ 할당
+            this.thumbnailUrl = program.getThumbnailUrl();
             this.programType = program.getProgramType();
             this.eduTime = program.getEduTime();
             this.quarter = program.getQuarter();
@@ -105,12 +108,18 @@ public class ProgramResponseDto {
     public static class CreateResponse {
         private Long programId;
         private String applyUrl;
+        private String thumbnailUrl;
         private String classPlanUrl;
+        private List<String> proofFileUrls; // ✨ 증빙 파일 URL 목록 추가
 
-        public CreateResponse(Long programId, String applyUrl, String classPlanUrl) {
+        public CreateResponse(Long programId, String applyUrl,
+                              String thumbnailUrl, String classPlanUrl,
+                              List<String> proofFileUrls) {
             this.programId = programId;
             this.applyUrl = applyUrl;
+            this.thumbnailUrl = thumbnailUrl;
             this.classPlanUrl = classPlanUrl;
+            this.proofFileUrls = proofFileUrls;
         }
     }
 }

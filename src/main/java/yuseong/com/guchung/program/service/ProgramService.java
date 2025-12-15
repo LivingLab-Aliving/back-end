@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -197,7 +198,6 @@ public class ProgramService {
             program.setThumbnailUrl(requestDto.getThumbnailUrl());
         }
 
-
         String updatedClassPlanUrl = requestDto.getClassPlanUrl();
         String updatedClassPlanOriginalName = program.getClassPlanOriginalName();
 
@@ -224,7 +224,6 @@ public class ProgramService {
 
         program.setClassPlanUrl(updatedClassPlanUrl);
         program.setClassPlanOriginalName(updatedClassPlanOriginalName);
-
 
         Instructor instructor = null;
         if (requestDto.getInstructorId() != null) {
@@ -281,6 +280,15 @@ public class ProgramService {
 
     private int getProgramLikeCount(Program program) {
         return programLikeRepository.countByProgram(program);
+    }
+
+    public List<String> extractProofFileUrls(Program program) {
+        if (program.getAttachedFiles() == null) {
+            return java.util.Collections.emptyList();
+        }
+        return program.getAttachedFiles().stream()
+                .map(ProgramFile::getFileUrl)
+                .collect(Collectors.toList());
     }
 
     public FileDownloadInfo downloadFile(String fileUrl, String fileName) {

@@ -68,13 +68,21 @@ public class ProgramController {
         Program savedProgram = programService.createProgram(requestDto, thumbnailFile, classPlanFile, proofFiles, adminId);
         Long programId = savedProgram.getProgramId();
 
+        List<String> proofFileUrls = programService.extractProofFileUrls(savedProgram);
+
         String applyUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/program/{programId}/apply")
                 .buildAndExpand(programId)
                 .toUriString();
 
         ProgramResponseDto.CreateResponse response =
-                new ProgramResponseDto.CreateResponse(programId, applyUrl, savedProgram.getClassPlanUrl());
+                new ProgramResponseDto.CreateResponse(
+                        programId,
+                        applyUrl,
+                        savedProgram.getThumbnailUrl(),
+                        savedProgram.getClassPlanUrl(),
+                        proofFileUrls
+                );
 
         return GlobalResponseDto.success("프로그램 생성 완료", response);
     }
@@ -197,7 +205,7 @@ public class ProgramController {
         return GlobalResponseDto.success("사용자 찜 목록 조회 성공", programs);
     }
 
-    @Operation(summary = "프로그램 좋아요 삭제 (찜 취소)", description = "찜 목록에서 특정 프로그램을 제거합니다.")
+    @Operation(summary = "프로그램 좋아요 삭제 (찜 취소)", description = "찜 목록에서 특정 프로그램을 제거합니다. (toggleProgramLike 재활용)")
     @DeleteMapping("/{programId}/like")
     public GlobalResponseDto<Boolean> unlikeProgram(
             @Parameter(description = "취소할 프로그램 ID") @PathVariable Long programId,
