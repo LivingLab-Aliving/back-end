@@ -19,8 +19,8 @@ import java.util.List;
 
 @Entity
 @Getter
-@NoArgsConstructor
 @Setter
+@NoArgsConstructor
 @Table(name = "program")
 public class Program {
 
@@ -32,15 +32,24 @@ public class Program {
     @Column(name = "program_name", nullable = false, unique = true)
     private String programName;
 
+    @Column(name = "thumbnail_url", length = 512)
+    private String thumbnailUrl;
+
     @Column(name = "edu_time")
     private String eduTime;
 
     private Integer quarter;
 
+    @Column(name = "edu_start_date")
     private LocalDateTime eduStartDate;
+
+    @Column(name = "edu_end_date")
     private LocalDateTime eduEndDate;
 
+    @Column(name = "recruit_start_date")
     private LocalDateTime recruitStartDate;
+
+    @Column(name = "recruit_end_date")
     private LocalDateTime recruitEndDate;
 
     @Column(name = "edu_date")
@@ -108,6 +117,10 @@ public class Program {
     @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProgramFile> attachedFiles = new ArrayList<>();
 
+    @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<ProgramFormItem> formItems = new ArrayList<>();
+
+
     public void update(ProgramRequestDto.Update dto, Instructor instructor) {
         this.programName = dto.getProgramName();
         this.eduTime = dto.getEduTime();
@@ -120,28 +133,31 @@ public class Program {
         this.capacity = dto.getCapacity();
         this.eduPrice = dto.getEduPrice();
         this.needs = dto.getNeeds();
+        this.description = dto.getDescription();
+        this.info = dto.getInfo();
+        this.etc = dto.getEtc();
+        this.classPlanUrl = dto.getClassPlanUrl();
         this.institution = dto.getInstitution();
         this.regionRestriction = dto.getRegionRestriction();
         this.targetAudience = dto.getTargetAudience();
         this.instructor = instructor;
-        this.classPlanUrl = dto.getClassPlanUrl();
-        this.description = dto.getDescription();
-        this.info = dto.getInfo();
-        this.etc = dto.getEtc();
         this.programType = dto.getProgramType();
+
+        if (dto.getThumbnailUrl() != null) {
+            this.thumbnailUrl = dto.getThumbnailUrl();
+        }
     }
 
-    @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<ProgramFormItem> formItems = new ArrayList<>();
-
     @Builder
-    public Program(String programName, ProgramType programType, String eduTime, Integer quarter, LocalDateTime eduStartDate,
-                   LocalDateTime eduEndDate, LocalDateTime recruitStartDate, LocalDateTime recruitEndDate,
-                   String eduPlace, int capacity, TargetAudience targetAudience, int eduPrice,
-                   String needs, String description, String info, String etc, String classPlanUrl,
-                   String institution, RegionRestriction regionRestriction, Admin admin, Instructor instructor, String classPlanOriginalName) {
+    public Program(String programName, String thumbnailUrl, String eduTime, Integer quarter,
+                   LocalDateTime eduStartDate, LocalDateTime eduEndDate, LocalDateTime recruitStartDate,
+                   LocalDateTime recruitEndDate, String eduPlace, int capacity, TargetAudience targetAudience,
+                   int eduPrice, String needs, String description, String info, String etc,
+                   String classPlanUrl, String classPlanOriginalName, String institution,
+                   RegionRestriction regionRestriction, Admin admin, Instructor instructor,
+                   ProgramType programType) {
         this.programName = programName;
-        this.programType = programType;
+        this.thumbnailUrl = thumbnailUrl; // ✨ 반영
         this.eduTime = eduTime;
         this.quarter = quarter;
         this.eduStartDate = eduStartDate;
@@ -157,10 +173,11 @@ public class Program {
         this.info = info;
         this.etc = etc;
         this.classPlanUrl = classPlanUrl;
+        this.classPlanOriginalName = classPlanOriginalName;
         this.institution = institution;
         this.regionRestriction = regionRestriction;
         this.admin = admin;
         this.instructor = instructor;
-        this.classPlanOriginalName = classPlanOriginalName;
+        this.programType = programType;
     }
 }

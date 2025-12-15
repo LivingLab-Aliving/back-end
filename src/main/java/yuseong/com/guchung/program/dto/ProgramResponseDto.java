@@ -1,58 +1,38 @@
 package yuseong.com.guchung.program.dto;
 
+import lombok.Builder;
 import lombok.Getter;
 import yuseong.com.guchung.program.model.Program;
 import yuseong.com.guchung.program.model.type.ProgramType;
-import yuseong.com.guchung.program.model.type.RegionRestriction;
-import yuseong.com.guchung.program.model.type.TargetAudience;
 
 import java.time.LocalDateTime;
 
 public class ProgramResponseDto {
 
     @Getter
-    public static class CreateResponse {
-        private Long programId;
-        private String applicationFormUrl;
-        private String classPlanUrl;
-
-        public CreateResponse(Long programId, String applicationFormUrl, String classPlanUrl) {
-            this.programId = programId;
-            this.applicationFormUrl = applicationFormUrl;
-            this.classPlanUrl = classPlanUrl;
-        }
-    }
-
-    @Getter
     public static class ListResponse {
         private Long programId;
         private String programName;
+        private String thumbnailUrl;
         private ProgramType programType;
         private String eduPlace;
+        private int capacity;
+        private int eduPrice;
         private LocalDateTime recruitStartDate;
         private LocalDateTime recruitEndDate;
-        private int eduPrice;
-        private int capacity;
-        private String institution;
-        private String classPlanUrl;
-
         private int likeCount;
         private boolean isLiked;
 
-        public ListResponse(Program entity) {
-            this.programId = entity.getProgramId();
-            this.programName = entity.getProgramName();
-            this.programType = entity.getProgramType();
-            this.eduPlace = entity.getEduPlace();
-            this.recruitStartDate = entity.getRecruitStartDate();
-            this.recruitEndDate = entity.getRecruitEndDate();
-            this.eduPrice = entity.getEduPrice();
-            this.capacity = entity.getCapacity();
-            this.institution = entity.getInstitution();
-            this.classPlanUrl = entity.getClassPlanUrl();
-
-            this.likeCount = 0;
-            this.isLiked = false;
+        public ListResponse(Program program) {
+            this.programId = program.getProgramId();
+            this.programName = program.getProgramName();
+            this.thumbnailUrl = program.getThumbnailUrl();
+            this.programType = program.getProgramType();
+            this.eduPlace = program.getEduPlace();
+            this.capacity = program.getCapacity();
+            this.eduPrice = program.getEduPrice();
+            this.recruitStartDate = program.getRecruitStartDate();
+            this.recruitEndDate = program.getRecruitEndDate();
         }
 
         public void setLikeInfo(int likeCount, boolean isLiked) {
@@ -65,6 +45,7 @@ public class ProgramResponseDto {
     public static class DetailResponse {
         private Long programId;
         private String programName;
+        private String thumbnailUrl;
         private ProgramType programType;
         private String eduTime;
         private Integer quarter;
@@ -72,55 +53,64 @@ public class ProgramResponseDto {
         private LocalDateTime eduEndDate;
         private LocalDateTime recruitStartDate;
         private LocalDateTime recruitEndDate;
+        private String eduDate;
         private String eduPlace;
         private int capacity;
-        private TargetAudience targetAudience;
+        private String targetAudience;
         private int eduPrice;
         private String needs;
         private String description;
         private String info;
         private String etc;
         private String classPlanUrl;
+        private String classPlanOriginalName;
         private String institution;
-        private RegionRestriction regionRestriction;
-        private LocalDateTime createdAt;
-
-        private Long instructorId;
+        private String regionRestriction;
         private String instructorName;
-
         private int likeCount;
         private boolean isLiked;
 
-        public DetailResponse(Program entity, int likeCount, boolean isLiked) {
-            this.programId = entity.getProgramId();
-            this.programName = entity.getProgramName();
-            this.programType = entity.getProgramType();
-            this.eduTime = entity.getEduTime();
-            this.quarter = entity.getQuarter();
-            this.eduStartDate = entity.getEduStartDate();
-            this.eduEndDate = entity.getEduEndDate();
-            this.recruitStartDate = entity.getRecruitStartDate();
-            this.recruitEndDate = entity.getRecruitEndDate();
-            this.eduPlace = entity.getEduPlace();
-            this.capacity = entity.getCapacity();
-            this.targetAudience = entity.getTargetAudience();
-            this.eduPrice = entity.getEduPrice();
-            this.needs = entity.getNeeds();
-            this.description = entity.getDescription();
-            this.info = entity.getInfo();
-            this.etc = entity.getEtc();
-            this.classPlanUrl = entity.getClassPlanUrl();
-            this.institution = entity.getInstitution();
-            this.regionRestriction = entity.getRegionRestriction();
-            this.createdAt = entity.getCreatedAt();
-
-            if (entity.getInstructor() != null) {
-                this.instructorId = entity.getInstructor().getInstructorId();
-                this.instructorName = entity.getInstructor().getName();
-            }
-
+        public DetailResponse(Program program, int likeCount, boolean isLiked) {
+            this.programId = program.getProgramId();
+            this.programName = program.getProgramName();
+            this.thumbnailUrl = program.getThumbnailUrl(); // ✨ 할당
+            this.programType = program.getProgramType();
+            this.eduTime = program.getEduTime();
+            this.quarter = program.getQuarter();
+            this.eduStartDate = program.getEduStartDate();
+            this.eduEndDate = program.getEduEndDate();
+            this.recruitStartDate = program.getRecruitStartDate();
+            this.recruitEndDate = program.getRecruitEndDate();
+            this.eduDate = program.getEduDate();
+            this.eduPlace = program.getEduPlace();
+            this.capacity = program.getCapacity();
+            this.targetAudience = program.getTargetAudience() != null ? program.getTargetAudience().getDescription() : null;
+            this.eduPrice = program.getEduPrice();
+            this.needs = program.getNeeds();
+            this.description = program.getDescription();
+            this.info = program.getInfo();
+            this.etc = program.getEtc();
+            this.classPlanUrl = program.getClassPlanUrl();
+            this.classPlanOriginalName = program.getClassPlanOriginalName();
+            this.institution = program.getInstitution();
+            this.regionRestriction = program.getRegionRestriction() != null ? program.getRegionRestriction().getDescription() : null;
+            this.instructorName = program.getInstructor() != null ? program.getInstructor().getName() : null;
             this.likeCount = likeCount;
             this.isLiked = isLiked;
+        }
+    }
+
+    @Getter
+    @Builder
+    public static class CreateResponse {
+        private Long programId;
+        private String applyUrl;
+        private String classPlanUrl;
+
+        public CreateResponse(Long programId, String applyUrl, String classPlanUrl) {
+            this.programId = programId;
+            this.applyUrl = applyUrl;
+            this.classPlanUrl = classPlanUrl;
         }
     }
 }

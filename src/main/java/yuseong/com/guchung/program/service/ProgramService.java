@@ -46,6 +46,7 @@ public class ProgramService {
 
     @Transactional
     public Program createProgram(ProgramRequestDto.Create requestDto,
+                                 MultipartFile thumbnailFile,
                                  MultipartFile classPlanFile,
                                  List<MultipartFile> proofFiles,
                                  Long adminId) throws IOException {
@@ -63,6 +64,16 @@ public class ProgramService {
             throw new IllegalArgumentException("이미 존재하는 프로그램명입니다.");
         }
 
+        String thumbnailUrl = requestDto.getThumbnailUrl();
+        if (thumbnailFile != null && !thumbnailFile.isEmpty()) {
+            try {
+                thumbnailUrl = s3Uploader.uploadFile(thumbnailFile, "program/thumbnail");
+            } catch (IOException e) {
+                log.error("S3 썸네일 파일 업로드 실패", e);
+                throw new RuntimeException("S3 썸네일 파일 업로드에 실패했습니다.", e);
+            }
+        }
+
         String classPlanUrl = requestDto.getClassPlanUrl();
         String classPlanOriginalName = null;
 
@@ -78,6 +89,7 @@ public class ProgramService {
 
         Program program = Program.builder()
                 .programName(requestDto.getProgramName())
+                .thumbnailUrl(thumbnailUrl)
                 .programType(requestDto.getProgramType())
                 .eduTime(requestDto.getEduTime())
                 .quarter(requestDto.getQuarter())
@@ -134,6 +146,7 @@ public class ProgramService {
 
     @Transactional
     public Long updateProgram(Long programId, ProgramRequestDto.Update requestDto,
+                              MultipartFile newThumbnailFile,
                               MultipartFile newClassPlanFile, Long adminId) {
 
         Program program = programRepository.findById(programId)
@@ -142,6 +155,28 @@ public class ProgramService {
         if (!program.getAdmin().getAdminId().equals(adminId)) {
             throw new IllegalArgumentException("프로그램을 수정할 권한이 없습니다.");
         }
+
+        if (newThumbnailFile != null && !newThumbnailFile.isEmpty()) {
+            try {
+                if (program.getThumbnailUrl() != null) {
+                    s3Uploader.deleteFile(program.getThumbnailUrl());
+                }
+                String newUrl = s3Uploader.uploadFile(newThumbnailFile, "program/thumbnail");
+                program.setThumbnailUrl(newUrl); // Program 엔티티의 Setter 사용
+
+            } catch (IOException e) {
+                log.error("S3 썸네일 파일 업데이트 실패", e);
+                throw new RuntimeException("S3 파일 업데이트에 실패했습니다.", e);
+            }
+        } else if (requestDto.getThumbnailUrl() == null || requestDto.getThumbnailUrl().isEmpty()) {
+            if (program.getThumbnailUrl() != null) {
+                s3Uploader.deleteFile(program.getThumbnailUrl());
+            }
+            program.setThumbnailUrl(null);
+        } else if (!requestDto.getThumbnailUrl().equals(program.getThumbnailUrl())) {
+            program.setThumbnailUrl(requestDto.getThumbnailUrl());
+        }
+
 
         String updatedClassPlanUrl = requestDto.getClassPlanUrl();
         String updatedClassPlanOriginalName = program.getClassPlanOriginalName();

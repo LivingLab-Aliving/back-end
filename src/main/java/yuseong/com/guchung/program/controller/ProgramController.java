@@ -41,11 +41,14 @@ public class ProgramController {
         return GlobalResponseDto.success(message, isDuplicated);
     }
 
-    @Operation(summary = "프로그램 생성", description = "새로운 교육 프로그램을 생성하고 강의계획서 파일 및 증빙 파일을 업로드합니다.")
+    @Operation(summary = "프로그램 생성", description = "새로운 교육 프로그램을 생성하고 썸네일, 강의계획서 파일 및 증빙 파일을 업로드합니다.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public GlobalResponseDto<ProgramResponseDto.CreateResponse> createProgram(
             @Parameter(description = "프로그램 상세 정보 (JSON)", required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
             @RequestPart(value = "dto") ProgramRequestDto.Create requestDto,
+
+            @Parameter(description = "썸네일 이미지 파일 (선택)")
+            @RequestPart(value = "thumbnailFile", required = false) MultipartFile thumbnailFile,
 
             @Parameter(description = "강의계획서 파일 (선택)")
             @RequestPart(value = "classPlanFile", required = false) MultipartFile classPlanFile,
@@ -56,7 +59,7 @@ public class ProgramController {
             @Parameter(description = "관리자 ID") @RequestParam Long adminId
     ) throws IOException {
 
-        Program savedProgram = programService.createProgram(requestDto, classPlanFile, proofFiles, adminId);
+        Program savedProgram = programService.createProgram(requestDto, thumbnailFile, classPlanFile, proofFiles, adminId);
         Long programId = savedProgram.getProgramId();
 
         String applyUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
@@ -70,7 +73,7 @@ public class ProgramController {
         return GlobalResponseDto.success("프로그램 생성 완료", response);
     }
 
-    @Operation(summary = "프로그램 정보 수정", description = "기존 프로그램의 정보를 수정합니다. (강의계획서 파일 포함)")
+    @Operation(summary = "프로그램 정보 수정", description = "기존 프로그램의 정보를 수정합니다. (썸네일 및 강의계획서 파일 포함)")
     @PutMapping(value = "/{programId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public GlobalResponseDto<Long> updateProgram(
             @Parameter(description = "수정할 프로그램 ID") @PathVariable Long programId,
@@ -78,12 +81,15 @@ public class ProgramController {
             @Parameter(description = "프로그램 상세 정보 (JSON)", required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
             @RequestPart(value = "dto") ProgramRequestDto.Update requestDto,
 
+            @Parameter(description = "새 썸네일 파일 (선택)")
+            @RequestPart(value = "newThumbnailFile", required = false) MultipartFile newThumbnailFile,
+
             @Parameter(description = "새 강의계획서 파일 (선택)")
             @RequestPart(value = "newClassPlanFile", required = false) MultipartFile newClassPlanFile,
 
             @Parameter(description = "관리자 ID") @RequestParam Long adminId
     ) {
-        Long updatedProgramId = programService.updateProgram(programId, requestDto, newClassPlanFile, adminId);
+        Long updatedProgramId = programService.updateProgram(programId, requestDto, newThumbnailFile, newClassPlanFile, adminId);
         return GlobalResponseDto.success("프로그램 수정", updatedProgramId);
     }
 

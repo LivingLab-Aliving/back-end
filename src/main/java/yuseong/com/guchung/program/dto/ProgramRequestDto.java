@@ -14,7 +14,7 @@ public class ProgramRequestDto {
     @NoArgsConstructor
     public static class Create {
         private String programName;
-        private ProgramType programType;
+        private String thumbnailUrl;
         private String eduTime;
         private Integer quarter;
         private LocalDateTime eduStartDate;
@@ -23,26 +23,24 @@ public class ProgramRequestDto {
         private LocalDateTime recruitEndDate;
         private String eduPlace;
         private int capacity;
-        private int eduPrice;
-        private String needs; // 학습자준비물
-        private String institution; // 교육기관
-
-        private RegionRestriction regionRestriction;
         private TargetAudience targetAudience;
-
-        private Long instructorId; // 강사 ID
-        private String classPlanUrl;
-
+        private int eduPrice;
+        private String needs;
         private String description;
         private String info;
         private String etc;
+        private String classPlanUrl;
+        private String institution;
+        private RegionRestriction regionRestriction;
+        private ProgramType programType;
+        private Long instructorId;
     }
 
     @Getter
     @NoArgsConstructor
     public static class Update {
         private String programName;
-        private ProgramType programType;
+        private String thumbnailUrl;
         private String eduTime;
         private Integer quarter;
         private LocalDateTime eduStartDate;
@@ -51,15 +49,20 @@ public class ProgramRequestDto {
         private LocalDateTime recruitEndDate;
         private String eduPlace;
         private int capacity;
+        private TargetAudience targetAudience;
         private int eduPrice;
         private String needs;
-        private String institution;
-        private RegionRestriction regionRestriction;
-        private TargetAudience targetAudience;
-        private Long instructorId;
-        private String classPlanUrl;
         private String description;
         private String info;
         private String etc;
+        private String classPlanUrl;
+        private String institution;
+        private RegionRestriction regionRestriction;
+        private ProgramType programType;
+        private Long instructorId;
+
+        public LocalDateTime getEndDate() {
+            return this.eduEndDate;
+        }
     }
 }
