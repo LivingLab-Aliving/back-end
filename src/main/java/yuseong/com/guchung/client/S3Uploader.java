@@ -2,14 +2,14 @@ package yuseong.com.guchung.client;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 
@@ -34,10 +34,21 @@ public class S3Uploader {
         return amazonS3.getUrl(bucket, fileName).toString();
     }
 
+    public List<String> uploadFiles(List<MultipartFile> multipartFiles, String dirName) throws IOException {
+        List<String> fileUrls = new ArrayList<>();
+
+        for (MultipartFile file : multipartFiles) {
+            if (!file.isEmpty()) {
+                fileUrls.add(uploadFile(file, dirName));
+            }
+        }
+        return fileUrls;
+    }
+
     private void validateFile(MultipartFile file) {
         String contentType = file.getContentType();
 
-        if (contentType == null || (!contentType.startsWith("image") && !contentType.equals("application/pdf"))) {
+        if (file.isEmpty() || contentType == null || (!contentType.startsWith("image") && !contentType.equals("application/pdf"))) {
             throw new IllegalArgumentException("이미지 파일 또는 PDF 파일만 업로드 가능합니다.");
         }
     }

@@ -21,6 +21,7 @@ import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.service.ProgramService;
 
 import java.io.IOException;
+import java.util.List;
 
 @Tag(name = "Education Program", description = "교육 프로그램 생성, 수정, 조회 및 관리 API")
 @RestController
@@ -40,19 +41,22 @@ public class ProgramController {
         return GlobalResponseDto.success(message, isDuplicated);
     }
 
-    @Operation(summary = "프로그램 생성", description = "새로운 교육 프로그램을 생성하고 강의계획서 파일을 업로드합니다.")
+    @Operation(summary = "프로그램 생성", description = "새로운 교육 프로그램을 생성하고 강의계획서 파일 및 증빙 파일을 업로드합니다.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public GlobalResponseDto<ProgramResponseDto.CreateResponse> createProgram(
             @Parameter(description = "프로그램 상세 정보 (JSON)", required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
             @RequestPart(value = "dto") ProgramRequestDto.Create requestDto,
 
             @Parameter(description = "강의계획서 파일 (선택)")
-            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestPart(value = "classPlanFile", required = false) MultipartFile classPlanFile,
+
+            @Parameter(description = "추가 증빙 파일 목록 (선택)")
+            @RequestPart(value = "proofFiles", required = false) List<MultipartFile> proofFiles,
 
             @Parameter(description = "관리자 ID") @RequestParam Long adminId
     ) throws IOException {
 
-        Program savedProgram = programService.createProgram(requestDto, file, adminId);
+        Program savedProgram = programService.createProgram(requestDto, classPlanFile, proofFiles, adminId);
         Long programId = savedProgram.getProgramId();
 
         String applyUrl = ServletUriComponentsBuilder.fromCurrentContextPath()

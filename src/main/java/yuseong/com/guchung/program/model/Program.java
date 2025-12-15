@@ -8,9 +8,9 @@ import org.hibernate.annotations.CreationTimestamp;
 import yuseong.com.guchung.admin.model.Admin;
 import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.auth.model.Instructor;
-import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
 import yuseong.com.guchung.program.model.type.TargetAudience;
+import yuseong.com.guchung.program.model.type.ProgramType;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -78,6 +78,10 @@ public class Program {
     @Column(name = "region_restriction")
     private RegionRestriction regionRestriction;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "program_type", nullable = false)
+    private ProgramType programType;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -96,13 +100,11 @@ public class Program {
     @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProgramLike> likes = new ArrayList<>();
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "program_type", nullable = false)
-    private ProgramType programType;
+    @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProgramFile> attachedFiles = new ArrayList<>();
 
     public void update(ProgramRequestDto.Update dto, Instructor instructor) {
         this.programName = dto.getProgramName();
-        this.programType = dto.getProgramType();
         this.eduTime = dto.getEduTime();
         this.quarter = dto.getQuarter();
         this.eduStartDate = dto.getEduStartDate();
@@ -121,6 +123,7 @@ public class Program {
         this.description = dto.getDescription();
         this.info = dto.getInfo();
         this.etc = dto.getEtc();
+        this.programType = dto.getProgramType();
     }
 
     @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

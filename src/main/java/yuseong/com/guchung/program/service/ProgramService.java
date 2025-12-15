@@ -1,6 +1,7 @@
 package yuseong.com.guchung.program.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,11 @@ import yuseong.com.guchung.client.S3Uploader;
 import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.program.dto.ProgramResponseDto;
 import yuseong.com.guchung.program.model.Program;
+import yuseong.com.guchung.program.model.ProgramFile;
 import yuseong.com.guchung.program.model.ProgramLike;
 import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
+import yuseong.com.guchung.program.repository.ProgramFileRepository;
 import yuseong.com.guchung.program.repository.ProgramLikeRepository;
 import yuseong.com.guchung.program.repository.ProgramRepository;
 
@@ -27,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -38,9 +42,13 @@ public class ProgramService {
     private final UserRepository userRepository;
     private final S3Uploader s3Uploader;
     private final ProgramLikeRepository programLikeRepository;
+    private final ProgramFileRepository programFileRepository;
 
     @Transactional
-    public Program createProgram(ProgramRequestDto.Create requestDto, MultipartFile file, Long adminId) {
+    public Program createProgram(ProgramRequestDto.Create requestDto,
+                                 MultipartFile classPlanFile,
+                                 List<MultipartFile> proofFiles,
+                                 Long adminId) throws IOException {
 
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new IllegalArgumentException("관리자 정보를 찾을 수 없습니다."));
@@ -55,16 +63,14 @@ public class ProgramService {
             throw new IllegalArgumentException("이미 존재하는 프로그램명입니다.");
         }
 
-        String uploadedFileUrl = null;
-
-        if (file != null && !file.isEmpty()) {
+        String classPlanUrl = requestDto.getClassPlanUrl();
+        if (classPlanFile != null && !classPlanFile.isEmpty()) {
             try {
-                uploadedFileUrl = s3Uploader.uploadFile(file, "program");
+                classPlanUrl = s3Uploader.uploadFile(classPlanFile, "program/classplan");
             } catch (IOException e) {
-                throw new RuntimeException("S3 파일 업로드에 실패했습니다.", e);
+                log.error("S3 강의계획서 파일 업로드 실패", e);
+                throw new RuntimeException("S3 강의계획서 파일 업로드에 실패했습니다.", e);
             }
-        } else {
-            uploadedFileUrl = requestDto.getClassPlanUrl();
         }
 
         Program program = Program.builder()
@@ -84,14 +90,38 @@ public class ProgramService {
                 .description(requestDto.getDescription())
                 .info(requestDto.getInfo())
                 .etc(requestDto.getEtc())
-                .classPlanUrl(uploadedFileUrl)
+                .classPlanUrl(classPlanUrl)
                 .institution(requestDto.getInstitution())
                 .regionRestriction(requestDto.getRegionRestriction())
                 .admin(admin)
                 .instructor(instructor)
                 .build();
 
-        return programRepository.save(program);
+        Program savedProgram = programRepository.save(program);
+
+        if (proofFiles != null && !proofFiles.isEmpty()) {
+            for (MultipartFile file : proofFiles) {
+                if (!file.isEmpty()) {
+                    try {
+                        String fileUrl = s3Uploader.uploadFile(file, "program/proof");
+
+                        ProgramFile programFile = ProgramFile.builder()
+                                .originalName(file.getOriginalFilename())
+                                .fileUrl(fileUrl)
+                                .program(savedProgram)
+                                .build();
+
+                        programFileRepository.save(programFile);
+
+                    } catch (IOException e) {
+                        log.error("S3 증빙 파일 업로드 실패: {}", file.getOriginalFilename(), e);
+                        throw new RuntimeException("S3 증빙 파일 업로드에 실패했습니다.", e);
+                    }
+                }
+            }
+        }
+
+        return savedProgram;
     }
 
     public boolean checkProgramName(String programName) {
@@ -262,7 +292,6 @@ public class ProgramService {
 
         return new ProgramResponseDto.DetailResponse(program, likeCount, isLiked);
     }
-
 
     public Page<ProgramResponseDto.ListResponse> getProgramListByAdmin(Long adminId, Pageable pageable) {
         if (!adminRepository.existsById(adminId)) {

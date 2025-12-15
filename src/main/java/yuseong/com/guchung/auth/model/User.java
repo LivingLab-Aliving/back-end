@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import yuseong.com.guchung.program.model.Application;
-import yuseong.com.guchung.program.model.ProgramLike; // ProgramLike import 추가
+import yuseong.com.guchung.program.model.ProgramLike;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,5 +55,8 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProgramLike> likedPrograms = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserFile> documents = new ArrayList<>();
 
 }
