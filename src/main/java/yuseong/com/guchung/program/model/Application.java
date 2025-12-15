@@ -51,4 +51,8 @@ public class Application {
         this.program = program;
         this.status = status;
     }
+
+    public void updateStatus(ApplicationStatus status) {
+        this.status = status;
+    }
 }
