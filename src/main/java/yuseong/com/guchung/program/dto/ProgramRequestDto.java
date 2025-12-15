@@ -2,6 +2,7 @@ package yuseong.com.guchung.program.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
 import yuseong.com.guchung.program.model.type.TargetAudience;
 
@@ -13,6 +14,7 @@ public class ProgramRequestDto {
     @NoArgsConstructor
     public static class Create {
         private String programName;
+        private ProgramType programType;
         private String eduTime;
         private Integer quarter;
         private LocalDateTime eduStartDate;
@@ -31,7 +33,6 @@ public class ProgramRequestDto {
         private Long instructorId; // 강사 ID
         private String classPlanUrl;
 
-        // 엔티티에 맞게 추가
         private String description;
         private String info;
         private String etc;
@@ -41,6 +42,7 @@ public class ProgramRequestDto {
     @NoArgsConstructor
     public static class Update {
         private String programName;
+        private ProgramType programType;
         private String eduTime;
         private Integer quarter;
         private LocalDateTime eduStartDate;

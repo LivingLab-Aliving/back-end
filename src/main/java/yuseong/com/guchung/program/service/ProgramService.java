@@ -17,6 +17,7 @@ import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.program.dto.ProgramResponseDto;
 import yuseong.com.guchung.program.model.Program;
 import yuseong.com.guchung.program.model.ProgramLike;
+import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
 import yuseong.com.guchung.program.repository.ProgramLikeRepository;
 import yuseong.com.guchung.program.repository.ProgramRepository;
@@ -68,6 +69,7 @@ public class ProgramService {
 
         Program program = Program.builder()
                 .programName(requestDto.getProgramName())
+                .programType(requestDto.getProgramType())
                 .eduTime(requestDto.getEduTime())
                 .quarter(requestDto.getQuarter())
                 .eduStartDate(requestDto.getEduStartDate())
@@ -150,35 +152,90 @@ public class ProgramService {
 
     public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId) {
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다. ID: " + userId));
-
-        String userAddress = user.getAddress();
-
+        User user = null;
         List<RegionRestriction> allowedRegions = new ArrayList<>();
         allowedRegions.add(RegionRestriction.NONE);
 
-        if (userAddress != null && !userAddress.isEmpty()) {
-            if (userAddress.contains("유성구")) {
-                allowedRegions.add(RegionRestriction.YUSEONG);
-            } else if (userAddress.contains("동구")) {
-                allowedRegions.add(RegionRestriction.DONGGU);
-            } else if (userAddress.contains("서구")) {
-                allowedRegions.add(RegionRestriction.SEOGU);
-            } else if (userAddress.contains("중구")) {
-                allowedRegions.add(RegionRestriction.JUNGGU);
-            } else if (userAddress.contains("대덕구")) {
-                allowedRegions.add(RegionRestriction.DAEDEOK);
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                    .orElse(null);
+
+            if (user != null) {
+                String userAddress = user.getAddress();
+                if (userAddress != null && !userAddress.isEmpty()) {
+                    if (userAddress.contains("유성구")) {
+                        allowedRegions.add(RegionRestriction.YUSEONG);
+                    } else if (userAddress.contains("동구")) {
+                        allowedRegions.add(RegionRestriction.DONGGU);
+                    } else if (userAddress.contains("서구")) {
+                        allowedRegions.add(RegionRestriction.SEOGU);
+                    } else if (userAddress.contains("중구")) {
+                        allowedRegions.add(RegionRestriction.JUNGGU);
+                    } else if (userAddress.contains("대덕구")) {
+                        allowedRegions.add(RegionRestriction.DAEDEOK);
+                    }
+                }
             }
         }
 
         Page<Program> programsPage = programRepository.findByRegionRestrictionIn(allowedRegions, pageable);
 
+        final User finalUser = user;
         return programsPage.map(program -> {
             ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
 
             int likeCount = getProgramLikeCount(program);
-            boolean isLiked = isProgramLikedByUser(user, program);
+            boolean isLiked = false;
+
+            if (finalUser != null) {
+                isLiked = isProgramLikedByUser(finalUser, program);
+            }
+
+            dto.setLikeInfo(likeCount, isLiked);
+            return dto;
+        });
+    }
+
+    public Page<ProgramResponseDto.ListResponse> getProgramListByType(ProgramType programType, Pageable pageable, Long userId) {
+
+        User user = null;
+        List<RegionRestriction> allowedRegions = new ArrayList<>();
+        allowedRegions.add(RegionRestriction.NONE);
+
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                    .orElse(null);
+        }
+
+        if (user != null) {
+            String userAddress = user.getAddress();
+            if (userAddress != null && !userAddress.isEmpty()) {
+                if (userAddress.contains("유성구")) {
+                    allowedRegions.add(RegionRestriction.YUSEONG);
+                } else if (userAddress.contains("동구")) {
+                    allowedRegions.add(RegionRestriction.DONGGU);
+                } else if (userAddress.contains("서구")) {
+                    allowedRegions.add(RegionRestriction.SEOGU);
+                } else if (userAddress.contains("중구")) {
+                    allowedRegions.add(RegionRestriction.JUNGGU);
+                } else if (userAddress.contains("대덕구")) {
+                    allowedRegions.add(RegionRestriction.DAEDEOK);
+                }
+            }
+        }
+
+        Page<Program> programsPage = programRepository.findByProgramTypeAndRegionRestrictionIn(programType, allowedRegions, pageable);
+
+        final User finalUser = user;
+        return programsPage.map(program -> {
+            ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
+
+            int likeCount = getProgramLikeCount(program);
+            boolean isLiked = false;
+
+            if (finalUser != null) {
+                isLiked = isProgramLikedByUser(finalUser, program);
+            }
 
             dto.setLikeInfo(likeCount, isLiked);
             return dto;
@@ -190,14 +247,22 @@ public class ProgramService {
         Program program = programRepository.findById(programId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 프로그램을 찾을 수 없습니다. ID: " + programId));
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다. ID: " + userId));
+        User user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                    .orElse(null);
+        }
 
         int likeCount = getProgramLikeCount(program);
-        boolean isLiked = isProgramLikedByUser(user, program);
+        boolean isLiked = false;
+
+        if (user != null) {
+            isLiked = isProgramLikedByUser(user, program);
+        }
 
         return new ProgramResponseDto.DetailResponse(program, likeCount, isLiked);
     }
+
 
     public Page<ProgramResponseDto.ListResponse> getProgramListByAdmin(Long adminId, Pageable pageable) {
         if (!adminRepository.existsById(adminId)) {

@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import yuseong.com.guchung.admin.model.Admin;
 import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.auth.model.Instructor;
+import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
 import yuseong.com.guchung.program.model.type.TargetAudience;
 
@@ -95,8 +96,13 @@ public class Program {
     @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProgramLike> likes = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "program_type", nullable = false)
+    private ProgramType programType;
+
     public void update(ProgramRequestDto.Update dto, Instructor instructor) {
         this.programName = dto.getProgramName();
+        this.programType = dto.getProgramType();
         this.eduTime = dto.getEduTime();
         this.quarter = dto.getQuarter();
         this.eduStartDate = dto.getEduStartDate();
@@ -121,12 +127,13 @@ public class Program {
     private List<ProgramFormItem> formItems = new ArrayList<>();
 
     @Builder
-    public Program(String programName, String eduTime, Integer quarter, LocalDateTime eduStartDate,
+    public Program(String programName, ProgramType programType, String eduTime, Integer quarter, LocalDateTime eduStartDate,
                    LocalDateTime eduEndDate, LocalDateTime recruitStartDate, LocalDateTime recruitEndDate,
                    String eduPlace, int capacity, TargetAudience targetAudience, int eduPrice,
                    String needs, String description, String info, String etc, String classPlanUrl,
                    String institution, RegionRestriction regionRestriction, Admin admin, Instructor instructor) {
         this.programName = programName;
+        this.programType = programType;
         this.eduTime = eduTime;
         this.quarter = quarter;
         this.eduStartDate = eduStartDate;

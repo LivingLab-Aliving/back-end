@@ -2,6 +2,7 @@ package yuseong.com.guchung.program.dto;
 
 import lombok.Getter;
 import yuseong.com.guchung.program.model.Program;
+import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
 import yuseong.com.guchung.program.model.type.TargetAudience;
 
@@ -26,6 +27,7 @@ public class ProgramResponseDto {
     public static class ListResponse {
         private Long programId;
         private String programName;
+        private ProgramType programType;
         private String eduPlace;
         private LocalDateTime recruitStartDate;
         private LocalDateTime recruitEndDate;
@@ -40,6 +42,7 @@ public class ProgramResponseDto {
         public ListResponse(Program entity) {
             this.programId = entity.getProgramId();
             this.programName = entity.getProgramName();
+            this.programType = entity.getProgramType();
             this.eduPlace = entity.getEduPlace();
             this.recruitStartDate = entity.getRecruitStartDate();
             this.recruitEndDate = entity.getRecruitEndDate();
@@ -62,6 +65,7 @@ public class ProgramResponseDto {
     public static class DetailResponse {
         private Long programId;
         private String programName;
+        private ProgramType programType;
         private String eduTime;
         private Integer quarter;
         private LocalDateTime eduStartDate;
@@ -87,39 +91,10 @@ public class ProgramResponseDto {
         private int likeCount;
         private boolean isLiked;
 
-        public DetailResponse(Program entity) {
-            this.programId = entity.getProgramId();
-            this.programName = entity.getProgramName();
-            this.eduTime = entity.getEduTime();
-            this.quarter = entity.getQuarter();
-            this.eduStartDate = entity.getEduStartDate();
-            this.eduEndDate = entity.getEduEndDate();
-            this.recruitStartDate = entity.getRecruitStartDate();
-            this.recruitEndDate = entity.getRecruitEndDate();
-            this.eduPlace = entity.getEduPlace();
-            this.capacity = entity.getCapacity();
-            this.targetAudience = entity.getTargetAudience();
-            this.eduPrice = entity.getEduPrice();
-            this.needs = entity.getNeeds();
-            this.description = entity.getDescription();
-            this.info = entity.getInfo();
-            this.etc = entity.getEtc();
-            this.classPlanUrl = entity.getClassPlanUrl();
-            this.institution = entity.getInstitution();
-            this.regionRestriction = entity.getRegionRestriction();
-            this.createdAt = entity.getCreatedAt();
-
-            if (entity.getInstructor() != null) {
-                this.instructorId = entity.getInstructor().getInstructorId();
-                this.instructorName = entity.getInstructor().getName();
-            }
-            this.likeCount = 0;
-            this.isLiked = false;
-        }
-
         public DetailResponse(Program entity, int likeCount, boolean isLiked) {
             this.programId = entity.getProgramId();
             this.programName = entity.getProgramName();
+            this.programType = entity.getProgramType();
             this.eduTime = entity.getEduTime();
             this.quarter = entity.getQuarter();
             this.eduStartDate = entity.getEduStartDate();
