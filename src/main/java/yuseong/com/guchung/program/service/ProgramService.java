@@ -1,7 +1,11 @@
 package yuseong.com.guchung.program.service;
 
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -43,6 +47,22 @@ public class ProgramService {
     private final S3Uploader s3Uploader;
     private final ProgramLikeRepository programLikeRepository;
     private final ProgramFileRepository programFileRepository;
+
+    public static class FileDownloadInfo {
+        private final Resource resource;
+        private final String originalFileName;
+        private final String contentType;
+
+        public FileDownloadInfo(Resource resource, String originalFileName, String contentType) {
+            this.resource = resource;
+            this.originalFileName = originalFileName;
+            this.contentType = contentType;
+        }
+
+        public Resource getResource() { return resource; }
+        public String getOriginalFileName() { return originalFileName; }
+        public String getContentType() { return contentType; }
+    }
 
     @Transactional
     public Program createProgram(ProgramRequestDto.Create requestDto,
@@ -162,7 +182,7 @@ public class ProgramService {
                     s3Uploader.deleteFile(program.getThumbnailUrl());
                 }
                 String newUrl = s3Uploader.uploadFile(newThumbnailFile, "program/thumbnail");
-                program.setThumbnailUrl(newUrl); // Program 엔티티의 Setter 사용
+                program.setThumbnailUrl(newUrl);
 
             } catch (IOException e) {
                 log.error("S3 썸네일 파일 업데이트 실패", e);
@@ -261,6 +281,35 @@ public class ProgramService {
 
     private int getProgramLikeCount(Program program) {
         return programLikeRepository.countByProgram(program);
+    }
+
+    public FileDownloadInfo downloadFile(String fileUrl, String fileName) {
+        if (fileUrl == null || fileUrl.isEmpty()) {
+            throw new IllegalArgumentException("파일 URL이 유효하지 않습니다.");
+        }
+
+        S3Object s3Object = s3Uploader.getS3Object(fileUrl);
+        S3ObjectInputStream objectInputStream = s3Object.getObjectContent();
+
+        Resource resource = new InputStreamResource(objectInputStream);
+
+        String contentType = s3Object.getObjectMetadata().getContentType();
+
+        String determinedFileName;
+        if (fileName != null && !fileName.isEmpty()) {
+            determinedFileName = fileName;
+        } else {
+            String key = s3Object.getKey();
+            int lastSlash = key.lastIndexOf('/');
+            int firstUnderscore = key.indexOf('_', lastSlash);
+            if (firstUnderscore > 0) {
+                determinedFileName = key.substring(firstUnderscore + 1);
+            } else {
+                determinedFileName = key.substring(lastSlash + 1);
+            }
+        }
+
+        return new FileDownloadInfo(resource, determinedFileName, contentType);
     }
 
     public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId) {

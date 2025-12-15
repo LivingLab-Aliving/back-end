@@ -9,6 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,8 +21,12 @@ import yuseong.com.guchung.program.dto.ProgramResponseDto;
 import yuseong.com.guchung.program.model.Program;
 import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.service.ProgramService;
+import yuseong.com.guchung.program.service.ProgramService.FileDownloadInfo;
 
+import org.springframework.http.ResponseEntity;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Tag(name = "Education Program", description = "교육 프로그램 생성, 수정, 조회 및 관리 API")
@@ -101,6 +107,27 @@ public class ProgramController {
     ) {
         programService.deleteProofFile(programFileId, adminId);
         return GlobalResponseDto.success("증빙 파일 삭제 완료", null);
+    }
+
+    @Operation(summary = "첨부 파일 다운로드", description = "강의계획서 또는 증빙 파일을 다운로드합니다. (백엔드 중계 방식)")
+    @GetMapping("/file/download")
+    public ResponseEntity<Resource> downloadFile(
+            @Parameter(description = "다운로드할 파일의 S3 URL (classPlanUrl 또는 ProgramFile.fileUrl)")
+            @RequestParam String fileUrl,
+
+            @Parameter(description = "다운로드 시 사용할 원본 파일명 (DB에 저장된 이름, 필수 아님)")
+            @RequestParam(required = false) String originalFileName
+    ) throws IOException {
+
+        FileDownloadInfo info = programService.downloadFile(fileUrl, originalFileName);
+
+        String encodedFileName = URLEncoder.encode(info.getOriginalFileName(), StandardCharsets.UTF_8.toString())
+                .replaceAll("\\+", "%20");
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(info.getContentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
+                .body(info.getResource());
     }
 
     @Operation(summary = "프로그램 전체 조회", description = "등록된 모든 프로그램을 페이징하여 조회합니다. 유저 주소에 따라 필터링되고, 좋아요 정보가 포함됩니다. (비로그인 가능)")

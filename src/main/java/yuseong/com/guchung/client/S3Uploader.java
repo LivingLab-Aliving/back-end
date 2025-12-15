@@ -2,6 +2,7 @@ package yuseong.com.guchung.client;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.S3Object;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,8 +12,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 
@@ -38,17 +37,6 @@ public class S3Uploader {
         return amazonS3.getUrl(bucket, fileName).toString();
     }
 
-    public List<String> uploadFiles(List<MultipartFile> multipartFiles, String dirName) throws IOException {
-        List<String> fileUrls = new ArrayList<>();
-
-        for (MultipartFile file : multipartFiles) {
-            if (!file.isEmpty()) {
-                fileUrls.add(uploadFile(file, dirName));
-            }
-        }
-        return fileUrls;
-    }
-
     public void deleteFile(String fileUrl) {
         if (fileUrl == null || fileUrl.isEmpty()) {
             return;
@@ -63,6 +51,24 @@ public class S3Uploader {
         } catch (Exception e) {
             log.error("S3 file deletion failed for URL: {}", fileUrl, e);
             throw new RuntimeException("S3 파일 삭제 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    public S3Object getS3Object(String fileUrl) {
+        String key = extractKeyFromUrl(fileUrl);
+        if (key == null) {
+            throw new IllegalArgumentException("유효하지 않은 S3 파일 URL입니다.");
+        }
+
+        if (!amazonS3.doesObjectExist(bucket, key)) {
+            throw new IllegalArgumentException("S3에서 파일을 찾을 수 없습니다.");
+        }
+
+        try {
+            return amazonS3.getObject(bucket, key);
+        } catch (Exception e) {
+            log.error("S3 파일 읽기 실패: {}", fileUrl, e);
+            throw new RuntimeException("파일 다운로드 중 오류가 발생했습니다.", e);
         }
     }
 
