@@ -16,12 +16,15 @@ import yuseong.com.guchung.client.S3Uploader;
 import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.program.dto.ProgramResponseDto;
 import yuseong.com.guchung.program.model.Program;
+import yuseong.com.guchung.program.model.ProgramLike;
 import yuseong.com.guchung.program.model.type.RegionRestriction;
+import yuseong.com.guchung.program.repository.ProgramLikeRepository;
 import yuseong.com.guchung.program.repository.ProgramRepository;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,7 @@ public class ProgramService {
     private final InstructorRepository instructorRepository;
     private final UserRepository userRepository;
     private final S3Uploader s3Uploader;
+    private final ProgramLikeRepository programLikeRepository;
 
     @Transactional
     public Program createProgram(ProgramRequestDto.Create requestDto, MultipartFile file, Long adminId) {
@@ -112,6 +116,38 @@ public class ProgramService {
         return program.getProgramId();
     }
 
+    @Transactional
+    public boolean toggleProgramLike(Long userId, Long programId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다. ID: " + userId));
+
+        Program program = programRepository.findById(programId)
+                .orElseThrow(() -> new IllegalArgumentException("프로그램을 찾을 수 없습니다. ID: " + programId));
+
+        Optional<ProgramLike> existingLike = programLikeRepository.findByUserAndProgram(user, program);
+
+        if (existingLike.isPresent()) {
+            programLikeRepository.delete(existingLike.get());
+            return false;
+        } else {
+            ProgramLike newLike = ProgramLike.builder()
+                    .user(user)
+                    .program(program)
+                    .build();
+            programLikeRepository.save(newLike);
+            return true;
+        }
+    }
+
+    private boolean isProgramLikedByUser(User user, Program program) {
+        return programLikeRepository.existsByUserAndProgram(user, program);
+    }
+
+    private int getProgramLikeCount(Program program) {
+        return programLikeRepository.countByProgram(program);
+    }
+
     public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId) {
 
         User user = userRepository.findById(userId)
@@ -138,14 +174,29 @@ public class ProgramService {
 
         Page<Program> programsPage = programRepository.findByRegionRestrictionIn(allowedRegions, pageable);
 
-        return programsPage.map(ProgramResponseDto.ListResponse::new);
+        return programsPage.map(program -> {
+            ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
+
+            int likeCount = getProgramLikeCount(program);
+            boolean isLiked = isProgramLikedByUser(user, program);
+
+            dto.setLikeInfo(likeCount, isLiked);
+            return dto;
+        });
     }
 
-    public ProgramResponseDto.DetailResponse getProgramDetail(Long programId) {
+    public ProgramResponseDto.DetailResponse getProgramDetail(Long programId, Long userId) {
+
         Program program = programRepository.findById(programId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 프로그램을 찾을 수 없습니다. ID: " + programId));
 
-        return new ProgramResponseDto.DetailResponse(program);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다. ID: " + userId));
+
+        int likeCount = getProgramLikeCount(program);
+        boolean isLiked = isProgramLikedByUser(user, program);
+
+        return new ProgramResponseDto.DetailResponse(program, likeCount, isLiked);
     }
 
     public Page<ProgramResponseDto.ListResponse> getProgramListByAdmin(Long adminId, Pageable pageable) {
@@ -154,6 +205,14 @@ public class ProgramService {
         }
 
         Page<Program> programsPage = programRepository.findByAdmin_AdminId(adminId, pageable);
-        return programsPage.map(ProgramResponseDto.ListResponse::new);
+
+        return programsPage.map(program -> {
+            ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
+
+            int likeCount = getProgramLikeCount(program);
+
+            dto.setLikeInfo(likeCount, false);
+            return dto;
+        });
     }
 }

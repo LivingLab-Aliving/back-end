@@ -34,6 +34,9 @@ public class ProgramResponseDto {
         private String institution;
         private String classPlanUrl;
 
+        private int likeCount;
+        private boolean isLiked;
+
         public ListResponse(Program entity) {
             this.programId = entity.getProgramId();
             this.programName = entity.getProgramName();
@@ -44,6 +47,14 @@ public class ProgramResponseDto {
             this.capacity = entity.getCapacity();
             this.institution = entity.getInstitution();
             this.classPlanUrl = entity.getClassPlanUrl();
+
+            this.likeCount = 0;
+            this.isLiked = false;
+        }
+
+        public void setLikeInfo(int likeCount, boolean isLiked) {
+            this.likeCount = likeCount;
+            this.isLiked = isLiked;
         }
     }
 
@@ -73,6 +84,9 @@ public class ProgramResponseDto {
         private Long instructorId;
         private String instructorName;
 
+        private int likeCount;
+        private boolean isLiked;
+
         public DetailResponse(Program entity) {
             this.programId = entity.getProgramId();
             this.programName = entity.getProgramName();
@@ -99,6 +113,39 @@ public class ProgramResponseDto {
                 this.instructorId = entity.getInstructor().getInstructorId();
                 this.instructorName = entity.getInstructor().getName();
             }
+            this.likeCount = 0;
+            this.isLiked = false;
+        }
+
+        public DetailResponse(Program entity, int likeCount, boolean isLiked) {
+            this.programId = entity.getProgramId();
+            this.programName = entity.getProgramName();
+            this.eduTime = entity.getEduTime();
+            this.quarter = entity.getQuarter();
+            this.eduStartDate = entity.getEduStartDate();
+            this.eduEndDate = entity.getEduEndDate();
+            this.recruitStartDate = entity.getRecruitStartDate();
+            this.recruitEndDate = entity.getRecruitEndDate();
+            this.eduPlace = entity.getEduPlace();
+            this.capacity = entity.getCapacity();
+            this.targetAudience = entity.getTargetAudience();
+            this.eduPrice = entity.getEduPrice();
+            this.needs = entity.getNeeds();
+            this.description = entity.getDescription();
+            this.info = entity.getInfo();
+            this.etc = entity.getEtc();
+            this.classPlanUrl = entity.getClassPlanUrl();
+            this.institution = entity.getInstitution();
+            this.regionRestriction = entity.getRegionRestriction();
+            this.createdAt = entity.getCreatedAt();
+
+            if (entity.getInstructor() != null) {
+                this.instructorId = entity.getInstructor().getInstructorId();
+                this.instructorName = entity.getInstructor().getName();
+            }
+
+            this.likeCount = likeCount;
+            this.isLiked = isLiked;
         }
     }
 }

@@ -92,6 +92,9 @@ public class Program {
     @OneToMany(mappedBy = "program")
     private List<Application> applications = new ArrayList<>();
 
+    @OneToMany(mappedBy = "program", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProgramLike> likes = new ArrayList<>();
+
     public void update(ProgramRequestDto.Update dto, Instructor instructor) {
         this.programName = dto.getProgramName();
         this.eduTime = dto.getEduTime();
