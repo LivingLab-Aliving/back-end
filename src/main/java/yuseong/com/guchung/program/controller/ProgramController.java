@@ -12,6 +12,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -23,7 +24,6 @@ import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.service.ProgramService;
 import yuseong.com.guchung.program.service.ProgramService.FileDownloadInfo;
 
-import org.springframework.http.ResponseEntity;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -182,5 +182,33 @@ public class ProgramController {
         boolean isLiked = programService.toggleProgramLike(userId, programId);
         String message = isLiked ? "프로그램을 찜했습니다." : "프로그램 찜을 취소했습니다.";
         return GlobalResponseDto.success(message, isLiked);
+    }
+
+    @Operation(summary = "사용자 좋아요 목록 조회", description = "현재 사용자가 좋아요(찜)한 프로그램 목록을 페이징하여 조회합니다.")
+    @GetMapping("/my-likes")
+    public GlobalResponseDto<Page<ProgramResponseDto.ListResponse>> getLikedProgramList(
+            @Parameter(description = "사용자 ID", required = true) @RequestParam Long userId,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+        Page<ProgramResponseDto.ListResponse> programs =
+                programService.getLikedProgramList(userId, pageable);
+
+        return GlobalResponseDto.success("사용자 찜 목록 조회 성공", programs);
+    }
+
+    @Operation(summary = "프로그램 좋아요 삭제 (찜 취소)", description = "찜 목록에서 특정 프로그램을 제거합니다.")
+    @DeleteMapping("/{programId}/like")
+    public GlobalResponseDto<Boolean> unlikeProgram(
+            @Parameter(description = "취소할 프로그램 ID") @PathVariable Long programId,
+            @Parameter(description = "사용자 ID", required = true) @RequestParam Long userId
+    ) {
+        boolean isLikedAfterToggle = programService.toggleProgramLike(userId, programId);
+
+        if (isLikedAfterToggle) {
+            return GlobalResponseDto.success("찜 취소 실패 (이미 찜이 취소되었거나 재등록됨)", false);
+        } else {
+            return GlobalResponseDto.success("찜 취소 완료", true);
+        }
     }
 }

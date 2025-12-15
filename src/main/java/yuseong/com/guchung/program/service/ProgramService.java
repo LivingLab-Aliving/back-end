@@ -312,6 +312,25 @@ public class ProgramService {
         return new FileDownloadInfo(resource, determinedFileName, contentType);
     }
 
+    public Page<ProgramResponseDto.ListResponse> getLikedProgramList(Long userId, Pageable pageable) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다. ID: " + userId));
+
+        Page<ProgramLike> likedProgramsPage = programLikeRepository.findByUser(user, pageable);
+
+        return likedProgramsPage.map(programLike -> {
+            Program program = programLike.getProgram();
+
+            ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
+
+            int likeCount = getProgramLikeCount(program);
+            dto.setLikeInfo(likeCount, true);
+
+            return dto;
+        });
+    }
+
     public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId) {
 
         User user = null;
