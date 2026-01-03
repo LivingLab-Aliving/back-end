@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import yuseong.com.guchung.program.model.Application;
 import yuseong.com.guchung.program.model.ProgramLike;
@@ -16,6 +17,7 @@ import java.util.List;
 @Entity
 @Getter
 @NoArgsConstructor
+@Setter
 @Table(name = "users")
 public class User {
 
@@ -35,6 +37,9 @@ public class User {
     private LocalDate birth;
 
     private String gender;
+
+    @Column(name = "exemption")
+    private String exemption;
 
     @Column(name = "phone_number")
     private String phoneNumber;

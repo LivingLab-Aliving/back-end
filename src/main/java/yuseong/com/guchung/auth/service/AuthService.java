@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import yuseong.com.guchung.auth.dto.OAuth2KakaoUserInfoDto;
+import yuseong.com.guchung.auth.dto.SignupRequestDto;
 import yuseong.com.guchung.auth.model.User;
 import yuseong.com.guchung.auth.repository.UserRepository;
 
@@ -29,58 +30,61 @@ public class AuthService {
 
     @Transactional
     public User saveOrUpdateUser(OAuth2KakaoUserInfoDto userInfoDto) {
-
         String oauthId = userInfoDto.getId();
         Optional<User> existingUser = userRepository.findByOauthId(oauthId);
 
-        User user;
+        LocalDate parsedBirth = null;
+
+        if (userInfoDto.getBirthYear() != null && userInfoDto.getBirthday() != null) {
+            try {
+                String fullBirthStr = userInfoDto.getBirthYear() + userInfoDto.getBirthday();
+                parsedBirth = LocalDate.parse(fullBirthStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            } catch (Exception e) {
+                log.warn("생년월일 파싱 실패: {}{}", userInfoDto.getBirthYear(), userInfoDto.getBirthday());
+            }
+        }
 
         if (existingUser.isPresent()) {
-            user = existingUser.get();
-            user.updateInfo(
-                    userInfoDto.getName(),
-                    userInfoDto.getPhoneNumber(),
-                    user.getAddress()
-            );
-            log.info("[AuthService] 기존 사용자 정보 업데이트 완료. ID: {}", user.getUserId());
+            User user = existingUser.get();
+            user.updateInfo(userInfoDto.getName(), userInfoDto.getPhoneNumber(), user.getAddress());
 
-        } else {
-            LocalDate birthDate = null;
-            if (userInfoDto.getBirthday() != null && userInfoDto.getBirthYear() != null) {
-                try {
-                    String fullBirth = userInfoDto.getBirthYear() + userInfoDto.getBirthday();
-                    birthDate = LocalDate.parse(fullBirth, DateTimeFormatter.ofPattern("yyyyMMdd"));
-                } catch (Exception e) {
-                    log.warn("생년월일 파싱 실패: {}", e.getMessage());
-                }
+            if (user.getBirth() == null && parsedBirth != null) {
+                user.setBirth(parsedBirth);
             }
 
-            user = User.builder()
+            return user;
+        } else {
+            User user = User.builder()
                     .oauthId(oauthId)
                     .email(userInfoDto.getEmail())
                     .name(userInfoDto.getName())
-                    .birth(birthDate)
-                    .gender(userInfoDto.getGender())
                     .phoneNumber(userInfoDto.getPhoneNumber())
-                    .address(null)
+                    .birth(parsedBirth)
+                    .gender(userInfoDto.getGender())
                     .build();
-
-            userRepository.save(user);
-            log.info("[AuthService] 신규 사용자 등록 완료. ID: {}", user.getUserId());
+            return userRepository.save(user);
         }
+    }
 
-        return user;
+    @Transactional
+    public void completeSignup(Long userId, SignupRequestDto dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다. ID: " + userId));
+
+        user.setAddress(dto.getAddress());
+        user.setExemption(dto.getExemption());
+        user.setEmailSend("yes".equals(dto.getEmailSubscribe()));
+        user.setAlarmSend("yes".equals(dto.getSmsSubscribe()));
+        user.setSnsSend("yes".equals(dto.getSnsSubscribe()));
+
+        log.info("[AuthService] 추가 정보 업데이트 성공. 유저ID: {}", userId);
     }
 
     public Authentication createAuthenticationForUser(User user) {
-        Collection<? extends GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
-
+        Collection<? extends GrantedAuthority> authorities =
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
         UserDetails principal = new org.springframework.security.core.userdetails.User(
-                user.getOauthId(),
-                "",
-                authorities
-        );
-
+                user.getOauthId(), "", authorities);
         return new UsernamePasswordAuthenticationToken(principal, null, authorities);
     }
 }

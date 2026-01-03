@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,11 +19,13 @@ import yuseong.com.guchung.auth.service.AuthService;
 import yuseong.com.guchung.jwt.JwtToken;
 import yuseong.com.guchung.jwt.JwtTokenProvider;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Tag(name = "Authentication", description = "카카오 로그인 및 인증 API")
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("")
 public class KakaoLoginController {
 
     private final KakaoService kakaoService;
@@ -32,20 +33,38 @@ public class KakaoLoginController {
     private final AuthService authService;
     private final JwtTokenProvider jwtTokenProvider;
 
-    @Operation(summary = "카카오 로그인 콜백", description = "카카오 인증 서버로부터 Authorization Code를 받아 액세스 토큰을 발급받고 유저 정보를 조회 후 DB에 저장하고 JWT를 발급합니다.")
+    @Operation(summary = "카카오 로그인 콜백", description = "인가 코드를 받아 유저를 식별하고 JWT를 발급합니다.")
     @GetMapping("/oauth")
-    public ResponseEntity<JwtToken> callback(
-            @Parameter(description = "카카오 인증 서버에서 받은 인가 코드") @RequestParam("code") String code
-    ) {
+    public ResponseEntity<?> callback(@RequestParam("code") String code) {
         String kakaoAccessToken = kakaoService.getAccessTokenFromKakao(code);
         OAuth2KakaoUserInfoDto userInfoDto = oAuth2Service.getKakaoUserInfo(kakaoAccessToken);
 
         User user = authService.saveOrUpdateUser(userInfoDto);
 
-        Authentication authentication = authService.createAuthenticationForUser(user);
+        boolean isNewUser = (user.getAddress() == null || user.getAddress().isEmpty());
 
+        Authentication authentication = authService.createAuthenticationForUser(user);
         JwtToken token = jwtTokenProvider.generateToken(authentication);
 
-        return new ResponseEntity<>(token, HttpStatus.OK);
+        Map<String, Object> response = new HashMap<>();
+        response.put("grantType", token.getGrantType());
+        response.put("accessToken", token.getAccessToken());
+        response.put("refreshToken", token.getRefreshToken());
+        response.put("name", user.getName());
+        response.put("userId", user.getUserId());
+        response.put("isNewUser", isNewUser);
+
+        response.put("email", user.getEmail());
+        response.put("phone", user.getPhoneNumber());
+        response.put("gender", user.getGender());
+
+        String birthStr = "";
+        if (user.getBirth() != null) {
+            birthStr = user.getBirth().format(java.time.format.DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+        }
+        response.put("birth", birthStr);
+        log.info(">>>>>> [추출된 실명(name)] : {}", birthStr);
+
+        return ResponseEntity.ok(response);
     }
 }

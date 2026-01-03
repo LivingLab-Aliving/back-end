@@ -23,68 +23,45 @@ public class OAuth2Service {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public OAuth2KakaoUserInfoDto getKakaoUserInfo(String accessToken) {
-        log.debug("[+] getKakaoUserInfo() 수행 :: {}", accessToken);
-
-        OAuth2KakaoUserInfoDto resultDto = null;
+        log.info("[+] getKakaoUserInfo() 수행 시작");
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         headers.add("Authorization", "Bearer " + accessToken);
 
-        MultiValueMap<String, Object> userInfoParam = new LinkedMultiValueMap<>();
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            userInfoParam.add("property_keys",
-                    objectMapper.writeValueAsString(new String[]{
-                            "kakao_account.email",
-                            "kakao_account.profile",
-                            "kakao_account.gender",
-                            "kakao_account.birthday",
-                            "kakao_account.birthyear",
-                            "kakao_account.phone_number"
-                    })
-            );
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+        HttpEntity<MultiValueMap<String, Object>> userInfoReq = new HttpEntity<>(headers);
 
-        HttpEntity<MultiValueMap<String, Object>> userInfoReq = new HttpEntity<>(userInfoParam, headers);
+        ResponseEntity<Map<String, Object>> responseUserInfo = restTemplate.exchange(
+                "https://kapi.kakao.com/v2/user/me",
+                HttpMethod.GET,
+                userInfoReq,
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+        );
 
-        ResponseEntity<Map<String, Object>> responseUserInfo = null;
-        try {
-            responseUserInfo = restTemplate.exchange(
-                    "https://kapi.kakao.com/v2/user/me",
-                    HttpMethod.POST,
-                    userInfoReq,
-                    new ParameterizedTypeReference<Map<String, Object>>() {}
-            );
-            log.debug("카카오 응답 :: {}", responseUserInfo);
+        Map<String, Object> body = responseUserInfo.getBody();
+        log.info(">>>>>> [카카오 응답 전체 데이터] : {}", body);
 
-        } catch (Exception e) {
-            log.error("[-] 사용자 정보 요청 중 오류 발생 :: {}", e.getMessage());
-        }
-
-        if (responseUserInfo != null && responseUserInfo.getBody() != null && responseUserInfo.getStatusCode().is2xxSuccessful()) {
-            Map<String, Object> body = responseUserInfo.getBody();
-
+        if (body != null) {
             Map<String, Object> kakaoAccount = cvtObjectToMap(body.get("kakao_account"));
-            Map<String, Object> profile = cvtObjectToMap(kakaoAccount.get("profile"));
+            log.info(">>>>>> [kakao_account 상세] : {}", kakaoAccount);
 
-            resultDto = OAuth2KakaoUserInfoDto.builder()
+            String bYear = (String) kakaoAccount.get("birthyear");
+            String bDay = (String) kakaoAccount.get("birthday");
+
+            String realName = (String) kakaoAccount.get("name");
+            log.info(">>>>>> [추출된 실명(name)] : {}", realName);
+
+            return OAuth2KakaoUserInfoDto.builder()
                     .id(String.valueOf(body.get("id")))
-                    .statusCode(responseUserInfo.getStatusCode().value())
                     .email((String) kakaoAccount.get("email"))
-                    .name((String) profile.get("nickname"))
+                    .name(realName)
                     .gender((String) kakaoAccount.get("gender"))
-                    .birthday((String) kakaoAccount.get("birthday"))
-                    .birthYear((String) kakaoAccount.get("birthyear"))
+                    .birthYear(bYear)
+                    .birthday(bDay)
                     .phoneNumber((String) kakaoAccount.get("phone_number"))
                     .build();
-
-            log.debug("최종 구성 결과 :: {}", resultDto);
         }
-
-        return resultDto;
+        return null;
     }
 
     private Map<String, Object> cvtObjectToMap(Object obj) {

@@ -31,19 +31,22 @@ public class KakaoService {
 
     public String getAccessTokenFromKakao(String code) {
 
-        KakaoTokenResponseDto kakaoTokenResponseDto = WebClient.create(KAUTH_TOKEN_URL_HOST).post()
-                .uri(uriBuilder -> uriBuilder
-                        .scheme("https")
-                        .path("/oauth/token")
-                        .queryParam("grant_type", "authorization_code")
-                        .queryParam("client_id", clientId)
-                        .queryParam("code", code)
-                        .build(true))
+        KakaoTokenResponseDto kakaoTokenResponseDto = WebClient.create(KAUTH_TOKEN_URL_HOST)
+                .post()
+                .uri("/oauth/token")
                 .header(HttpHeaders.CONTENT_TYPE, HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED.toString())
+                .bodyValue("grant_type=authorization_code" +
+                        "&client_id=" + clientId +
+                        "&redirect_uri=http://localhost:3000/oauth" +
+                        "&code=" + code)
                 .retrieve()
-                //Custom Exception, 나중에 구현
-                .onStatus(HttpStatusCode::is4xxClientError, clientResponse -> Mono.error(new RuntimeException("Invalid Parameter")))
-                .onStatus(HttpStatusCode::is5xxServerError, clientResponse -> Mono.error(new RuntimeException("Internal Server Error")))
+                .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                        clientResponse.bodyToMono(String.class).flatMap(errorBody -> {
+                            log.error("[Kakao Service] 토큰 요청 실패 사유: {}", errorBody);
+                            return Mono.error(new RuntimeException("카카오 토큰 요청 실패: " + errorBody));
+                        }))
+                .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                        Mono.error(new RuntimeException("카카오 서버 에러")))
                 .bodyToMono(KakaoTokenResponseDto.class)
                 .block();
 
