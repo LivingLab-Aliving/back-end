@@ -32,26 +32,35 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final UserRepository userRepository;
     private final ProgramRepository programRepository;
-
     private final ProgramFormItemRepository formItemRepository;
     private final ApplicationAnswerRepository answerRepository;
 
+    /**
+     * 관리자용: 특정 프로그램의 전체 신청자 목록 조회
+     */
+    public List<ApplicationResponseDto.AdminListResponse> getApplicationsByProgram(Long programId) {
+        // 1. 해당 프로그램의 모든 신청서 조회
+        List<Application> applications = applicationRepository.findByProgram_ProgramId(programId);
+
+        // 2. 각 신청서별로 답변 정보를 매핑하여 반환
+        return applications.stream()
+                .map(app -> {
+                    // 이 신청서(app)에 작성된 답변들 가져오기
+                    List<ApplicationAnswer> answers = answerRepository.findByApplication(app);
+                    return ApplicationResponseDto.AdminListResponse.from(app, answers);
+                })
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public Long applyProgram(Long programId, Long userId, ApplicationRequestDto.Apply requestDto) {
-
-        User user = userRepository.findById(userId)
+        User user = userRepository.findById(userId) // Integer userId 대응
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다. ID: " + userId));
 
         Program program = programRepository.findById(programId)
                 .orElseThrow(() -> new IllegalArgumentException("프로그램을 찾을 수 없습니다. ID: " + programId));
 
-        LocalDateTime now = LocalDateTime.now();
-
-        log.info("현재 시간: {}", now);
-        log.info("모집 시작: {}", program.getRecruitStartDate());
-        log.info("모집 종료: {}", program.getRecruitEndDate());
-
-        if (now.isBefore(program.getRecruitStartDate()) || now.isAfter(program.getRecruitEndDate())) {
+        if (LocalDateTime.now().isBefore(program.getRecruitStartDate()) || LocalDateTime.now().isAfter(program.getRecruitEndDate())) {
             throw new IllegalArgumentException("현재 신청 기간이 아닙니다.");
         }
 
@@ -59,50 +68,24 @@ public class ApplicationService {
             throw new IllegalArgumentException("이미 신청한 프로그램입니다.");
         }
 
-        int currentApplicants = applicationRepository.countByProgram_ProgramId(programId);
-        if (currentApplicants >= program.getCapacity()) {
+        if (applicationRepository.countByProgram_ProgramId(programId) >= program.getCapacity()) {
             throw new IllegalStateException("신청 정원이 마감되었습니다.");
         }
 
         Application application = Application.builder()
-                .user(user)
-                .program(program)
-                .status(ApplicationStatus.PENDING)
-                .build();
+                .user(user).program(program).status(ApplicationStatus.PENDING).build();
 
         Application savedApplication = applicationRepository.save(application);
 
-        if (requestDto.getAnswers() != null && !requestDto.getAnswers().isEmpty()) {
-            List<Long> itemIds = requestDto.getAnswers().stream()
-                    .map(ApplicationRequestDto.AnswerDto::getFormItemId)
-                    .collect(Collectors.toList());
-
-            Map<Long, ProgramFormItem> formItemsMap = formItemRepository.findAllById(itemIds)
-                    .stream()
-                    .collect(Collectors.toMap(ProgramFormItem::getId, item -> item));
-
+        if (requestDto.getAnswers() != null) {
             List<ApplicationAnswer> answers = requestDto.getAnswers().stream()
-                    .map(answerDto -> {
-                        ProgramFormItem formItem = formItemsMap.get(answerDto.getFormItemId());
-
-                        if (formItem == null) {
-                            log.warn("Form Item ID {} not found for program {}", answerDto.getFormItemId(), programId);
-                            // throw new IllegalArgumentException("유효하지 않은 양식 항목 ID가 포함되어 있습니다.");
-                            return null;
-                        }
-
-                        return ApplicationAnswer.builder()
-                                .application(savedApplication)
-                                .formItem(formItem)
-                                .answer(answerDto.getAnswer())
-                                .build();
-                    })
-                    .filter(java.util.Objects::nonNull)
+                    .map(dto -> ApplicationAnswer.builder()
+                            .application(savedApplication)
+                            .formItem(formItemRepository.findById(dto.getFormItemId()).orElse(null))
+                            .answer(dto.getAnswer()).build())
                     .collect(Collectors.toList());
-
             answerRepository.saveAll(answers);
         }
-
         return savedApplication.getApplicationId();
     }
 
@@ -113,31 +96,16 @@ public class ApplicationService {
     @Transactional
     public void cancelApplication(Long applicationId, Long userId) {
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("신청 정보를 찾을 수 없습니다. ID: " + applicationId));
-
-        if (!application.getUser().getUserId().equals(userId)) {
-            throw new IllegalArgumentException("신청 취소 권한이 없습니다.");
+                .orElseThrow(() -> new IllegalArgumentException("신청 정보 없음"));
+        if (!application.getUser().getUserId().equals(userId.intValue())) {
+            throw new IllegalArgumentException("권한 없음");
         }
-
-        ApplicationStatus currentStatus = application.getStatus();
-        if (currentStatus == ApplicationStatus.APPROVED) {
-            throw new IllegalStateException("이미 승인된 신청은 취소할 수 없습니다.");
-        }
-        if (currentStatus == ApplicationStatus.CANCELED) {
-            throw new IllegalStateException("이미 취소된 신청입니다.");
-        }
-
         application.updateStatus(ApplicationStatus.CANCELED);
-        log.info("Application ID {} canceled by User ID {}", applicationId, userId);
     }
 
     public List<ApplicationResponseDto.ListResponse> getUserApplications(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다. ID: " + userId));
-
-        List<Application> applications = applicationRepository.findByUser(user);
-
-        return applications.stream()
+        User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 없음"));
+        return applicationRepository.findByUser(user).stream()
                 .map(ApplicationResponseDto.ListResponse::from)
                 .collect(Collectors.toList());
     }

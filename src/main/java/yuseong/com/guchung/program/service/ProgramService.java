@@ -86,21 +86,13 @@ public class ProgramService {
     @Transactional
     public Long updateProgram(Long id, ProgramRequestDto.Update dto, MultipartFile thumb, MultipartFile plan, Long adminId) throws IOException {
         Program program = programRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("프로그램 없음"));
-        if (!program.getAdmin().getAdminId().equals(adminId)) throw new IllegalArgumentException("권한 없음");
 
-        if (thumb != null) program.setThumbnailUrl(s3Uploader.updateFile(thumb, program.getThumbnailUrl(), "program/thumb"));
-        if (plan != null) program.setClassPlanUrl(s3Uploader.updateFile(plan, program.getClassPlanUrl(), "program/plan"));
-
-        Instructor instructor = (dto.getInstructorId() != null) ? instructorRepository.findById(dto.getInstructorId()).orElse(null) : null;
-
-        // 🌟 주의: 엔티티의 update 메서드에서 programType이 누락되지 않았는지 확인 필요
-        program.update(dto, instructor);
-
-        // 신청폼 업데이트 (기존 삭제 후 재등록)
-        if (dto.getAdditionalFields() != null) {
-            formItemRepository.deleteByProgram_ProgramId(id);
-            saveFormItems(program, dto.getAdditionalFields());
+        Instructor instructor = null;
+        if (dto.getInstructorId() != null) {
+            instructor = instructorRepository.findById(dto.getInstructorId()).orElse(null);
         }
+
+        program.update(dto, instructor);
 
         return program.getProgramId();
     }

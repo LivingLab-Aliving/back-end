@@ -7,10 +7,11 @@ import yuseong.com.guchung.program.model.Application;
 import yuseong.com.guchung.program.model.Program;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface ApplicationRepository extends JpaRepository<Application, Long> {
+
+    List<Application> findByProgram_ProgramId(Long programId);
 
     int countByProgram_ProgramId(Long programId);
     boolean existsByUserAndProgram(User user, Program program);
