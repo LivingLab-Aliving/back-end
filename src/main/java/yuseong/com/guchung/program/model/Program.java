@@ -92,6 +92,9 @@ public class Program {
     @Column(name = "region_restriction")
     private RegionRestriction regionRestriction;
 
+    @Column(name = "dong_name")
+    private String dongName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "program_type", nullable = false)
     private ProgramType programType;

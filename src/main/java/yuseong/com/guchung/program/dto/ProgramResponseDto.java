@@ -1,7 +1,9 @@
 package yuseong.com.guchung.program.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import yuseong.com.guchung.program.model.Application;
 import yuseong.com.guchung.program.model.Program;
 import yuseong.com.guchung.program.model.type.ApplicationStatus;
@@ -23,6 +25,9 @@ public class ProgramResponseDto {
         private int eduPrice;
         private LocalDateTime recruitStartDate;
         private LocalDateTime recruitEndDate;
+        private LocalDateTime eduStartDate;
+        private LocalDateTime eduEndDate;
+        private String eduTime;
         private int likeCount;
         private boolean isLiked;
 
@@ -36,6 +41,9 @@ public class ProgramResponseDto {
             this.eduPrice = program.getEduPrice();
             this.recruitStartDate = program.getRecruitStartDate();
             this.recruitEndDate = program.getRecruitEndDate();
+            this.eduStartDate = program.getEduStartDate();
+            this.eduEndDate = program.getEduEndDate();
+            this.eduTime = program.getEduTime();
         }
 
         public void setLikeInfo(int likeCount, boolean isLiked) {
@@ -72,8 +80,9 @@ public class ProgramResponseDto {
         private String instructorName;
         private int likeCount;
         private boolean isLiked;
+        private boolean applied;
 
-        public DetailResponse(Program program, int likeCount, boolean isLiked) {
+        public DetailResponse(Program program, int likeCount, boolean isLiked, boolean applied) {
             this.programId = program.getProgramId();
             this.programName = program.getProgramName();
             this.thumbnailUrl = program.getThumbnailUrl();
@@ -100,7 +109,20 @@ public class ProgramResponseDto {
             this.instructorName = program.getInstructor() != null ? program.getInstructor().getName() : null;
             this.likeCount = likeCount;
             this.isLiked = isLiked;
+            this.applied = applied;
         }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class FormItemResponse {
+        private Long id;
+        private String label;
+        private String type;
+        private boolean required;
+        private List<String> options;
     }
 
     @Getter

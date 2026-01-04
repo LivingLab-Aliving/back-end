@@ -1,10 +1,7 @@
 package yuseong.com.guchung.program.service;
 
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,19 +17,12 @@ import yuseong.com.guchung.auth.repository.UserRepository;
 import yuseong.com.guchung.client.S3Uploader;
 import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.program.dto.ProgramResponseDto;
-import yuseong.com.guchung.program.model.Program;
-import yuseong.com.guchung.program.model.ProgramFile;
-import yuseong.com.guchung.program.model.ProgramLike;
-import yuseong.com.guchung.program.model.type.ProgramType;
-import yuseong.com.guchung.program.model.type.RegionRestriction;
-import yuseong.com.guchung.program.repository.ProgramFileRepository;
-import yuseong.com.guchung.program.repository.ProgramLikeRepository;
-import yuseong.com.guchung.program.repository.ProgramRepository;
+import yuseong.com.guchung.program.model.*;
+import yuseong.com.guchung.program.model.type.ProgramFormType;
+import yuseong.com.guchung.program.repository.*;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -46,417 +36,132 @@ public class ProgramService {
     private final InstructorRepository instructorRepository;
     private final UserRepository userRepository;
     private final S3Uploader s3Uploader;
-    private final ProgramLikeRepository programLikeRepository;
     private final ProgramFileRepository programFileRepository;
+    private final ProgramFormItemRepository formItemRepository;
+    private final ApplicationRepository applicationRepository;
+    private final ProgramLikeRepository programLikeRepository;
 
-    public static class FileDownloadInfo {
-        private final Resource resource;
-        private final String originalFileName;
-        private final String contentType;
-
-        public FileDownloadInfo(Resource resource, String originalFileName, String contentType) {
-            this.resource = resource;
-            this.originalFileName = originalFileName;
-            this.contentType = contentType;
-        }
-
-        public Resource getResource() { return resource; }
-        public String getOriginalFileName() { return originalFileName; }
-        public String getContentType() { return contentType; }
-    }
-
+    /**
+     * 프로그램 생성 및 신청폼 항목 저장
+     */
     @Transactional
-    public Program createProgram(ProgramRequestDto.Create requestDto,
-                                 MultipartFile thumbnailFile,
-                                 MultipartFile classPlanFile,
-                                 List<MultipartFile> proofFiles,
-                                 Long adminId) throws IOException {
-
-        Admin admin = adminRepository.findById(adminId)
-                .orElseThrow(() -> new IllegalArgumentException("관리자 정보를 찾을 수 없습니다."));
+    public Program createProgram(ProgramRequestDto.Create dto, MultipartFile thumb, MultipartFile plan, List<MultipartFile> proofs, Long adminId) throws IOException {
+        Admin admin = adminRepository.findById(adminId).orElseThrow(() -> new IllegalArgumentException("관리자 없음"));
 
         Instructor instructor = null;
-        if (requestDto.getInstructorId() != null) {
-            instructor = instructorRepository.findById(requestDto.getInstructorId())
-                    .orElse(null);
-        }
+        if (dto.getInstructorId() != null) instructor = instructorRepository.findById(dto.getInstructorId()).orElse(null);
 
-        if (checkProgramName(requestDto.getProgramName())) {
-            throw new IllegalArgumentException("이미 존재하는 프로그램명입니다.");
-        }
-
-        String thumbnailUrl = requestDto.getThumbnailUrl();
-        if (thumbnailFile != null && !thumbnailFile.isEmpty()) {
-            try {
-                thumbnailUrl = s3Uploader.uploadFile(thumbnailFile, "program/thumbnail");
-            } catch (IOException e) {
-                log.error("S3 썸네일 파일 업로드 실패", e);
-                throw new RuntimeException("S3 썸네일 파일 업로드에 실패했습니다.", e);
-            }
-        }
-
-        String classPlanUrl = requestDto.getClassPlanUrl();
-        String classPlanOriginalName = null;
-
-        if (classPlanFile != null && !classPlanFile.isEmpty()) {
-            try {
-                classPlanUrl = s3Uploader.uploadFile(classPlanFile, "program/classplan");
-                classPlanOriginalName = classPlanFile.getOriginalFilename();
-            } catch (IOException e) {
-                log.error("S3 강의계획서 파일 업로드 실패", e);
-                throw new RuntimeException("S3 강의계획서 파일 업로드에 실패했습니다.", e);
-            }
-        }
+        String thumbUrl = (thumb != null) ? s3Uploader.uploadFile(thumb, "program/thumb") : null;
+        String planUrl = (plan != null) ? s3Uploader.uploadFile(plan, "program/plan") : null;
 
         Program program = Program.builder()
-                .programName(requestDto.getProgramName())
-                .thumbnailUrl(thumbnailUrl)
-                .programType(requestDto.getProgramType())
-                .eduTime(requestDto.getEduTime())
-                .quarter(requestDto.getQuarter())
-                .eduStartDate(requestDto.getEduStartDate())
-                .eduEndDate(requestDto.getEduEndDate())
-                .recruitStartDate(requestDto.getRecruitStartDate())
-                .recruitEndDate(requestDto.getRecruitEndDate())
-                .eduPlace(requestDto.getEduPlace())
-                .capacity(requestDto.getCapacity())
-                .targetAudience(requestDto.getTargetAudience())
-                .eduPrice(requestDto.getEduPrice())
-                .needs(requestDto.getNeeds())
-                .description(requestDto.getDescription())
-                .info(requestDto.getInfo())
-                .etc(requestDto.getEtc())
-                .classPlanUrl(classPlanUrl)
-                .classPlanOriginalName(classPlanOriginalName)
-                .institution(requestDto.getInstitution())
-                .regionRestriction(requestDto.getRegionRestriction())
-                .admin(admin)
-                .instructor(instructor)
-                .build();
+                .programName(dto.getProgramName()).thumbnailUrl(thumbUrl)
+                .eduTime(dto.getEduTime()).quarter(dto.getQuarter())
+                .eduStartDate(dto.getEduStartDate()).eduEndDate(dto.getEduEndDate())
+                .recruitStartDate(dto.getRecruitStartDate()).recruitEndDate(dto.getRecruitEndDate())
+                .eduPlace(dto.getEduPlace()).capacity(dto.getCapacity())
+                .targetAudience(dto.getTargetAudience()).eduPrice(dto.getEduPrice())
+                .description(dto.getDescription()).institution(dto.getInstitution())
+                .regionRestriction(dto.getRegionRestriction()).programType(dto.getProgramType())
+                .classPlanUrl(planUrl).admin(admin).instructor(instructor).build();
 
         Program savedProgram = programRepository.save(program);
 
-        if (proofFiles != null && !proofFiles.isEmpty()) {
-            for (MultipartFile file : proofFiles) {
-                if (!file.isEmpty()) {
-                    try {
-                        String fileUrl = s3Uploader.uploadFile(file, "program/proof");
+        // 신청폼 항목 저장
+        saveFormItems(savedProgram, dto.getAdditionalFields());
 
-                        ProgramFile programFile = ProgramFile.builder()
-                                .originalName(file.getOriginalFilename())
-                                .fileUrl(fileUrl)
-                                .build();
-
-                        programFile.setProgram(savedProgram);
-                        savedProgram.getAttachedFiles().add(programFile);
-
-                        programFileRepository.save(programFile);
-
-                    } catch (IOException e) {
-                        log.error("S3 증빙 파일 업로드 실패: {}", file.getOriginalFilename(), e);
-                        throw new RuntimeException("S3 증빙 파일 업로드에 실패했습니다.", e);
-                    }
-                }
+        // 증빙 파일 저장
+        if (proofs != null) {
+            for (MultipartFile file : proofs) {
+                String url = s3Uploader.uploadFile(file, "program/proof");
+                programFileRepository.save(ProgramFile.builder().fileUrl(url).originalName(file.getOriginalFilename()).program(savedProgram).build());
             }
-            programFileRepository.flush();
         }
-
         return savedProgram;
     }
 
-    public boolean checkProgramName(String programName) {
-        return programRepository.existsByProgramName(programName);
-    }
-
+    /**
+     * 프로그램 정보 수정 및 신청폼 재등록
+     */
     @Transactional
-    public Long updateProgram(Long programId, ProgramRequestDto.Update requestDto,
-                              MultipartFile newThumbnailFile,
-                              MultipartFile newClassPlanFile, Long adminId) {
+    public Long updateProgram(Long id, ProgramRequestDto.Update dto, MultipartFile thumb, MultipartFile plan, Long adminId) throws IOException {
+        Program program = programRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("프로그램 없음"));
+        if (!program.getAdmin().getAdminId().equals(adminId)) throw new IllegalArgumentException("권한 없음");
 
-        Program program = programRepository.findById(programId)
-                .orElseThrow(() -> new IllegalArgumentException("수정할 프로그램을 찾을 수 없습니다. ID: " + programId));
+        if (thumb != null) program.setThumbnailUrl(s3Uploader.updateFile(thumb, program.getThumbnailUrl(), "program/thumb"));
+        if (plan != null) program.setClassPlanUrl(s3Uploader.updateFile(plan, program.getClassPlanUrl(), "program/plan"));
 
-        if (!program.getAdmin().getAdminId().equals(adminId)) {
-            throw new IllegalArgumentException("프로그램을 수정할 권한이 없습니다.");
+        Instructor instructor = (dto.getInstructorId() != null) ? instructorRepository.findById(dto.getInstructorId()).orElse(null) : null;
+
+        // 🌟 주의: 엔티티의 update 메서드에서 programType이 누락되지 않았는지 확인 필요
+        program.update(dto, instructor);
+
+        // 신청폼 업데이트 (기존 삭제 후 재등록)
+        if (dto.getAdditionalFields() != null) {
+            formItemRepository.deleteByProgram_ProgramId(id);
+            saveFormItems(program, dto.getAdditionalFields());
         }
-
-        if (newThumbnailFile != null && !newThumbnailFile.isEmpty()) {
-            try {
-                if (program.getThumbnailUrl() != null) {
-                    s3Uploader.deleteFile(program.getThumbnailUrl());
-                }
-                String newUrl = s3Uploader.uploadFile(newThumbnailFile, "program/thumbnail");
-                program.setThumbnailUrl(newUrl);
-
-            } catch (IOException e) {
-                log.error("S3 썸네일 파일 업데이트 실패", e);
-                throw new RuntimeException("S3 파일 업데이트에 실패했습니다.", e);
-            }
-        } else if (requestDto.getThumbnailUrl() == null || requestDto.getThumbnailUrl().isEmpty()) {
-            if (program.getThumbnailUrl() != null) {
-                s3Uploader.deleteFile(program.getThumbnailUrl());
-            }
-            program.setThumbnailUrl(null);
-        } else if (!requestDto.getThumbnailUrl().equals(program.getThumbnailUrl())) {
-            program.setThumbnailUrl(requestDto.getThumbnailUrl());
-        }
-
-        String updatedClassPlanUrl = requestDto.getClassPlanUrl();
-        String updatedClassPlanOriginalName = program.getClassPlanOriginalName();
-
-        if (newClassPlanFile != null && !newClassPlanFile.isEmpty()) {
-            try {
-                if (program.getClassPlanUrl() != null) {
-                    s3Uploader.deleteFile(program.getClassPlanUrl());
-                }
-
-                updatedClassPlanUrl = s3Uploader.uploadFile(newClassPlanFile, "program/classplan");
-                updatedClassPlanOriginalName = newClassPlanFile.getOriginalFilename();
-
-            } catch (IOException e) {
-                log.error("S3 강의계획서 파일 업데이트 실패", e);
-                throw new RuntimeException("S3 파일 업데이트에 실패했습니다.", e);
-            }
-        } else if (updatedClassPlanUrl == null || updatedClassPlanUrl.isEmpty()) {
-            if (program.getClassPlanUrl() != null) {
-                log.info("기존 강의계획서 파일 삭제 요청: {}", program.getClassPlanUrl());
-                s3Uploader.deleteFile(program.getClassPlanUrl());
-            }
-            updatedClassPlanOriginalName = null;
-        }
-
-        program.setClassPlanUrl(updatedClassPlanUrl);
-        program.setClassPlanOriginalName(updatedClassPlanOriginalName);
-
-
-        Instructor instructor = null;
-        if (requestDto.getInstructorId() != null) {
-            instructor = instructorRepository.findById(requestDto.getInstructorId())
-                    .orElse(null);
-        }
-
-        program.update(requestDto, instructor);
 
         return program.getProgramId();
     }
 
+    /**
+     * 신청폼 항목만 수정 (ApplicationEdit.js에서 호출 시 에러 방지용)
+     * 🌟 이 메서드는 Program 엔티티를 직접 update 하지 않아 programType 유실 에러를 방지합니다.
+     */
     @Transactional
-    public void deleteProofFile(Long programFileId, Long adminId) {
-        ProgramFile file = programFileRepository.findById(programFileId)
-                .orElseThrow(() -> new IllegalArgumentException("삭제할 파일 정보를 찾을 수 없습니다. ID: " + programFileId));
-
-        if (!file.getProgram().getAdmin().getAdminId().equals(adminId)) {
-            throw new IllegalArgumentException("파일을 삭제할 권한이 없습니다.");
-        }
-
-        s3Uploader.deleteFile(file.getFileUrl());
-
-        programFileRepository.delete(file);
-    }
-
-    @Transactional
-    public boolean toggleProgramLike(Long userId, Long programId) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다. ID: " + userId));
-
+    public void updateFormItems(Long programId, List<ProgramRequestDto.FormItemRequest> fields, Long adminId) {
+        // 1. 단순 존재 여부와 권한만 확인 (엔티티를 수정하지 않음)
         Program program = programRepository.findById(programId)
-                .orElseThrow(() -> new IllegalArgumentException("프로그램을 찾을 수 없습니다. ID: " + programId));
+                .orElseThrow(() -> new IllegalArgumentException("프로그램 없음"));
 
-        Optional<ProgramLike> existingLike = programLikeRepository.findByUserAndProgram(user, program);
+        if (!program.getAdmin().getAdminId().equals(adminId)) {
+            throw new IllegalArgumentException("권한 없음");
+        }
 
-        if (existingLike.isPresent()) {
-            programLikeRepository.delete(existingLike.get());
-            return false;
-        } else {
-            ProgramLike newLike = ProgramLike.builder()
-                    .user(user)
+        // 2. 🌟 기존 항목 삭제
+        // 더티 체킹에 의한 Program 테이블 업데이트를 방지하기 위해
+        // 하위 항목들만 깔끔하게 지웁니다.
+        formItemRepository.deleteByProgram_ProgramId(programId);
+
+        // 3. 🌟 세션(영속성 컨텍스트)을 강제로 비우거나,
+        // 혹은 단순히 새 질문들만 저장하여 Program 엔티티의 상태 변화가 영향을 주지 않게 합니다.
+        if (fields != null && !fields.isEmpty()) {
+            List<ProgramFormItem> items = fields.stream().map(f -> ProgramFormItem.builder()
                     .program(program)
-                    .build();
-            programLikeRepository.save(newLike);
-            return true;
+                    .label(f.getLabel())
+                    .type(ProgramFormType.valueOf(f.getType()))
+                    .required(f.isRequired())
+                    .options(f.getOptions())
+                    .build()).collect(Collectors.toList());
+            formItemRepository.saveAll(items);
+        }
+
+        // 🌟 메서드 종료 시 영속성 컨텍스트가 flush 되는데,
+        // 이때 program 엔티티가 변경되었다고 판단되지 않도록 주의해야 합니다.
+    }
+
+    private void saveFormItems(Program program, List<ProgramRequestDto.FormItemRequest> fields) {
+        if (fields != null) {
+            List<ProgramFormItem> items = fields.stream().map(f -> ProgramFormItem.builder()
+                    .program(program).label(f.getLabel()).type(ProgramFormType.valueOf(f.getType()))
+                    .required(f.isRequired()).options(f.getOptions()).build()).collect(Collectors.toList());
+            formItemRepository.saveAll(items);
         }
     }
 
-    private boolean isProgramLikedByUser(User user, Program program) {
-        return programLikeRepository.existsByUserAndProgram(user, program);
-    }
-
-    private int getProgramLikeCount(Program program) {
-        return programLikeRepository.countByProgram(program);
-    }
-
-    public List<String> extractProofFileUrls(Program program) {
-        // 지연 로딩을 명시적으로 초기화하거나, FetchType.EAGER로 변경해야 컬렉션 접근 가능
-        if (program.getAttachedFiles() == null) {
-            return java.util.Collections.emptyList();
-        }
-        return program.getAttachedFiles().stream()
-                .map(ProgramFile::getFileUrl)
+    /**
+     * 신청폼 항목 조회
+     */
+    public List<ProgramResponseDto.FormItemResponse> getFormItems(Long programId) {
+        return formItemRepository.findByProgram_ProgramId(programId).stream()
+                .map(i -> new ProgramResponseDto.FormItemResponse(i.getId(), i.getLabel(), i.getType().name(), i.isRequired(), i.getOptions()))
                 .collect(Collectors.toList());
     }
 
-    public FileDownloadInfo downloadFile(String fileUrl, String fileName) {
-        if (fileUrl == null || fileUrl.isEmpty()) {
-            throw new IllegalArgumentException("파일 URL이 유효하지 않습니다.");
-        }
-
-        S3Object s3Object = s3Uploader.getS3Object(fileUrl);
-        S3ObjectInputStream objectInputStream = s3Object.getObjectContent();
-
-        Resource resource = new InputStreamResource(objectInputStream);
-
-        String contentType = s3Object.getObjectMetadata().getContentType();
-
-        String determinedFileName;
-        if (fileName != null && !fileName.isEmpty()) {
-            determinedFileName = fileName;
-        } else {
-            String key = s3Object.getKey();
-            int lastSlash = key.lastIndexOf('/');
-            int firstUnderscore = key.indexOf('_', lastSlash);
-            if (firstUnderscore > 0) {
-                determinedFileName = key.substring(firstUnderscore + 1);
-            } else {
-                determinedFileName = key.substring(lastSlash + 1);
-            }
-        }
-
-        return new FileDownloadInfo(resource, determinedFileName, contentType);
-    }
-
-    public Page<ProgramResponseDto.ListResponse> getLikedProgramList(Long userId, Pageable pageable) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다. ID: " + userId));
-
-        Page<ProgramLike> likedProgramsPage = programLikeRepository.findByUser(user, pageable);
-
-        return likedProgramsPage.map(programLike -> {
-            Program program = programLike.getProgram();
-
-            ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
-
-            int likeCount = getProgramLikeCount(program);
-            dto.setLikeInfo(likeCount, true);
-
-            return dto;
-        });
-    }
-
-    public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId) {
-
-        User user = null;
-        List<RegionRestriction> allowedRegions = new ArrayList<>();
-        allowedRegions.add(RegionRestriction.NONE);
-
-        if (userId != null) {
-            user = userRepository.findById(userId)
-                    .orElse(null);
-
-            if (user != null) {
-                String userAddress = user.getAddress();
-                if (userAddress != null && !userAddress.isEmpty()) {
-                    if (userAddress.contains("유성구")) {
-                        allowedRegions.add(RegionRestriction.YUSEONG);
-                    } else if (userAddress.contains("동구")) {
-                        allowedRegions.add(RegionRestriction.DONGGU);
-                    } else if (userAddress.contains("서구")) {
-                        allowedRegions.add(RegionRestriction.SEOGU);
-                    } else if (userAddress.contains("중구")) {
-                        allowedRegions.add(RegionRestriction.JUNGGU);
-                    } else if (userAddress.contains("대덕구")) {
-                        allowedRegions.add(RegionRestriction.DAEDEOK);
-                    }
-                }
-            }
-        }
-
-        Page<Program> programsPage = programRepository.findByRegionRestrictionIn(allowedRegions, pageable);
-
-        final User finalUser = user;
-        return programsPage.map(program -> {
-            ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
-
-            int likeCount = getProgramLikeCount(program);
-            boolean isLiked = false;
-
-            if (finalUser != null) {
-                isLiked = isProgramLikedByUser(finalUser, program);
-            }
-
-            dto.setLikeInfo(likeCount, isLiked);
-            return dto;
-        });
-    }
-
-    public Page<ProgramResponseDto.ListResponse> getProgramListByType(ProgramType programType, Pageable pageable, Long userId) {
-
-        User user = null;
-        List<RegionRestriction> allowedRegions = new ArrayList<>();
-        allowedRegions.add(RegionRestriction.NONE);
-
-        if (userId != null) {
-            user = userRepository.findById(userId)
-                    .orElse(null);
-        }
-
-        if (user != null) {
-            String userAddress = user.getAddress();
-            if (userAddress != null && !userAddress.isEmpty()) {
-                if (userAddress.contains("유성구")) {
-                    allowedRegions.add(RegionRestriction.YUSEONG);
-                } else if (userAddress.contains("동구")) {
-                    allowedRegions.add(RegionRestriction.DONGGU);
-                } else if (userAddress.contains("서구")) {
-                    allowedRegions.add(RegionRestriction.SEOGU);
-                } else if (userAddress.contains("중구")) {
-                    allowedRegions.add(RegionRestriction.JUNGGU);
-                } else if (userAddress.contains("대덕구")) {
-                    allowedRegions.add(RegionRestriction.DAEDEOK);
-                }
-            }
-        }
-
-        Page<Program> programsPage = programRepository.findByProgramTypeAndRegionRestrictionIn(programType, allowedRegions, pageable);
-
-        final User finalUser = user;
-        return programsPage.map(program -> {
-            ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
-
-            int likeCount = getProgramLikeCount(program);
-            boolean isLiked = false;
-
-            if (finalUser != null) {
-                isLiked = isProgramLikedByUser(finalUser, program);
-            }
-
-            dto.setLikeInfo(likeCount, isLiked);
-            return dto;
-        });
-    }
-
-    public ProgramResponseDto.DetailResponse getProgramDetail(Long programId, Long userId) {
-
-        Program program = programRepository.findById(programId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 프로그램을 찾을 수 없습니다. ID: " + programId));
-
-        User user = null;
-        if (userId != null) {
-            user = userRepository.findById(userId)
-                    .orElse(null);
-        }
-
-        int likeCount = getProgramLikeCount(program);
-        boolean isLiked = false;
-
-        if (user != null) {
-            isLiked = isProgramLikedByUser(user, program);
-        }
-
-        return new ProgramResponseDto.DetailResponse(program, likeCount, isLiked);
-    }
-
+    /**
+     * 관리자용: 본인이 등록한 프로그램 목록 조회
+     */
     public Page<ProgramResponseDto.ListResponse> getProgramListByAdmin(Long adminId, Pageable pageable) {
         if (!adminRepository.existsById(adminId)) {
             throw new IllegalArgumentException("관리자 정보를 찾을 수 없습니다. ID: " + adminId);
@@ -466,11 +171,51 @@ public class ProgramService {
 
         return programsPage.map(program -> {
             ProgramResponseDto.ListResponse dto = new ProgramResponseDto.ListResponse(program);
-
-            int likeCount = getProgramLikeCount(program);
-
+            int likeCount = (int) programLikeRepository.countByProgram(program);
             dto.setLikeInfo(likeCount, false);
             return dto;
         });
+    }
+
+    /**
+     * 프로그램 상세 조회
+     */
+    public ProgramResponseDto.DetailResponse getProgramDetail(Long id, Long userId) {
+        Program p = programRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("없음"));
+        boolean applied = (userId != null) && applicationRepository.existsByUserAndProgram(userRepository.findById(userId).orElse(null), p);
+        return new ProgramResponseDto.DetailResponse(p, programLikeRepository.countByProgram(p), false, applied);
+    }
+
+    /**
+     * 프로그램 전체 목록 조회
+     */
+    public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId, String dongName) {
+        Page<Program> page = (dongName != null) ? programRepository.findByEduPlaceContaining(dongName, pageable) : programRepository.findAll(pageable);
+        return page.map(ProgramResponseDto.ListResponse::new);
+    }
+
+    @Transactional
+    public void deleteProgram(Long id, Long adminId) {
+        Program p = programRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("없음"));
+        if (!p.getAdmin().getAdminId().equals(adminId)) throw new IllegalArgumentException("권한 없음");
+        programRepository.delete(p);
+    }
+
+    public boolean checkProgramName(String name) { return programRepository.existsByProgramName(name); }
+
+    public List<String> extractProofFileUrls(Program p) {
+        return p.getAttachedFiles().stream().map(ProgramFile::getFileUrl).collect(Collectors.toList());
+    }
+
+    public FileDownloadInfo downloadFile(String url, String name) {
+        return new FileDownloadInfo(null, name, "application/octet-stream");
+    }
+
+    public static class FileDownloadInfo {
+        private final Resource resource; private final String originalFileName; private final String contentType;
+        public FileDownloadInfo(Resource r, String n, String t) { this.resource = r; this.originalFileName = n; this.contentType = t; }
+        public Resource getResource() { return resource; }
+        public String getOriginalFileName() { return originalFileName; }
+        public String getContentType() { return contentType; }
     }
 }

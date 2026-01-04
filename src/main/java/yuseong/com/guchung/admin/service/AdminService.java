@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import yuseong.com.guchung.admin.dto.AdminRequestDto;
+import yuseong.com.guchung.admin.dto.AdminResponseDto;
 import yuseong.com.guchung.admin.model.Admin;
 import yuseong.com.guchung.admin.repository.AdminRepository;
 import yuseong.com.guchung.jwt.JwtToken;
@@ -37,7 +38,7 @@ public class AdminService {
         return adminRepository.save(admin).getAdminId();
     }
 
-    public JwtToken login(AdminRequestDto.Login requestDto) {
+    public AdminResponseDto.LoginResponse login(AdminRequestDto.Login requestDto) {
         Admin admin = adminRepository.findByLoginId(requestDto.getLoginId())
                 .orElseThrow(() -> new IllegalArgumentException("아이디가 존재하지 않습니다."));
 
@@ -48,6 +49,13 @@ public class AdminService {
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(requestDto.getLoginId(), admin.getPassword());
 
-        return jwtTokenProvider.generateToken(authenticationToken);
+        JwtToken jwtToken = jwtTokenProvider.generateToken(authenticationToken);
+
+        return AdminResponseDto.LoginResponse.builder()
+                .grantType(jwtToken.getGrantType())
+                .accessToken(jwtToken.getAccessToken())
+                .refreshToken(jwtToken.getRefreshToken())
+                .adminId(admin.getAdminId())
+                .build();
     }
 }

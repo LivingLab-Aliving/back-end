@@ -13,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import yuseong.com.guchung.admin.dto.AdminRequestDto;
+import yuseong.com.guchung.admin.dto.AdminResponseDto;
 import yuseong.com.guchung.admin.service.AdminService;
 import yuseong.com.guchung.auth.dto.GlobalResponseDto;
 import yuseong.com.guchung.jwt.JwtToken;
@@ -38,10 +39,9 @@ public class AdminController {
 
     @Operation(summary = "관리자 로그인", description = "로그인 성공 시 JWT 토큰(AccessToken)을 반환합니다.")
     @PostMapping("/login")
-    public GlobalResponseDto<JwtToken> login(@RequestBody AdminRequestDto.Login requestDto) {
-        // [수정] Service가 JwtToken을 반환하므로 Controller도 JwtToken 반환
-        JwtToken token = adminService.login(requestDto);
-        return GlobalResponseDto.success("관리자 로그인 성공", token);
+    public GlobalResponseDto<AdminResponseDto.LoginResponse> login(@RequestBody AdminRequestDto.Login requestDto) {
+        AdminResponseDto.LoginResponse loginResponse = adminService.login(requestDto);
+        return GlobalResponseDto.success("관리자 로그인 성공", loginResponse);
     }
 
     @Operation(summary = "내 프로그램 조회", description = "특정 관리자가 생성한 프로그램 목록을 조회합니다. (본인 확인 포함)")

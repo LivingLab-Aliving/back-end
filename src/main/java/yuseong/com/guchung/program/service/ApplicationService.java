@@ -47,6 +47,10 @@ public class ApplicationService {
 
         LocalDateTime now = LocalDateTime.now();
 
+        log.info("현재 시간: {}", now);
+        log.info("모집 시작: {}", program.getRecruitStartDate());
+        log.info("모집 종료: {}", program.getRecruitEndDate());
+
         if (now.isBefore(program.getRecruitStartDate()) || now.isAfter(program.getRecruitEndDate())) {
             throw new IllegalArgumentException("현재 신청 기간이 아닙니다.");
         }

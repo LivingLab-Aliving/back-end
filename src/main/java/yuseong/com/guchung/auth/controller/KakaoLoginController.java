@@ -57,6 +57,7 @@ public class KakaoLoginController {
         response.put("email", user.getEmail());
         response.put("phone", user.getPhoneNumber());
         response.put("gender", user.getGender());
+        response.put("address", user.getAddress());
 
         String birthStr = "";
         if (user.getBirth() != null) {

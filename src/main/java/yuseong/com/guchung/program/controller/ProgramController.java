@@ -5,11 +5,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +29,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-@Tag(name = "Education Program", description = "교육 프로그램 생성, 수정, 조회 및 관리 API")
+@Tag(name = "Education Program", description = "교육 프로그램 및 신청폼 관리 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/program")
@@ -37,186 +37,111 @@ public class ProgramController {
 
     private final ProgramService programService;
 
-    @Operation(summary = "프로그램명 중복 확인", description = "프로그램 생성 전 이름 중복 여부를 확인합니다.")
+    @Operation(summary = "프로그램명 중복 확인")
     @GetMapping("/check-name")
-    public GlobalResponseDto<Boolean> checkProgramName(
-            @Parameter(description = "중복 확인할 프로그램명") @RequestParam String name
-    ) {
+    public GlobalResponseDto<Boolean> checkProgramName(@RequestParam String name) {
         boolean isDuplicated = programService.checkProgramName(name);
         String message = isDuplicated ? "중복된 이름입니다." : "사용 가능한 이름입니다.";
         return GlobalResponseDto.success(message, isDuplicated);
     }
 
-    @Operation(summary = "프로그램 생성", description = "새로운 교육 프로그램을 생성하고 썸네일, 강의계획서 파일 및 증빙 파일을 업로드합니다.")
+    @Operation(summary = "프로그램 및 신청폼 생성")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public GlobalResponseDto<ProgramResponseDto.CreateResponse> createProgram(
-            @Parameter(description = "프로그램 상세 정보 (JSON)", required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
             @RequestPart(value = "dto") ProgramRequestDto.Create requestDto,
-
-            @Parameter(description = "썸네일 이미지 파일 (선택)")
             @RequestPart(value = "thumbnailFile", required = false) MultipartFile thumbnailFile,
-
-            @Parameter(description = "강의계획서 파일 (선택)")
             @RequestPart(value = "classPlanFile", required = false) MultipartFile classPlanFile,
-
-            @Parameter(description = "추가 증빙 파일 목록 (선택)")
             @RequestPart(value = "proofFiles", required = false) List<MultipartFile> proofFiles,
-
-            @Parameter(description = "관리자 ID") @RequestParam Long adminId
+            @RequestParam Long adminId
     ) throws IOException {
 
         Program savedProgram = programService.createProgram(requestDto, thumbnailFile, classPlanFile, proofFiles, adminId);
         Long programId = savedProgram.getProgramId();
 
-        List<String> proofFileUrls = programService.extractProofFileUrls(savedProgram);
-
         String applyUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/program/{programId}/apply")
-                .buildAndExpand(programId)
-                .toUriString();
+                .buildAndExpand(programId).toUriString();
 
-        ProgramResponseDto.CreateResponse response =
-                new ProgramResponseDto.CreateResponse(
-                        programId,
-                        applyUrl,
-                        savedProgram.getThumbnailUrl(),
-                        savedProgram.getClassPlanUrl(),
-                        proofFileUrls
-                );
+        ProgramResponseDto.CreateResponse response = new ProgramResponseDto.CreateResponse(
+                programId, applyUrl, savedProgram.getThumbnailUrl(),
+                savedProgram.getClassPlanUrl(), programService.extractProofFileUrls(savedProgram)
+        );
 
-        return GlobalResponseDto.success("프로그램 생성 완료", response);
+        return GlobalResponseDto.success("프로그램 및 신청폼 생성 완료", response);
     }
 
-    @Operation(summary = "프로그램 정보 수정", description = "기존 프로그램의 정보를 수정합니다. (썸네일 및 강의계획서 파일 포함)")
+    @Operation(summary = "프로그램 정보 수정")
     @PutMapping(value = "/{programId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public GlobalResponseDto<Long> updateProgram(
-            @Parameter(description = "수정할 프로그램 ID") @PathVariable Long programId,
-
-            @Parameter(description = "프로그램 상세 정보 (JSON)", required = true, content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
+            @PathVariable Long programId,
             @RequestPart(value = "dto") ProgramRequestDto.Update requestDto,
-
-            @Parameter(description = "새 썸네일 파일 (선택)")
             @RequestPart(value = "newThumbnailFile", required = false) MultipartFile newThumbnailFile,
-
-            @Parameter(description = "새 강의계획서 파일 (선택)")
             @RequestPart(value = "newClassPlanFile", required = false) MultipartFile newClassPlanFile,
-
-            @Parameter(description = "관리자 ID") @RequestParam Long adminId
-    ) {
-        Long updatedProgramId = programService.updateProgram(programId, requestDto, newThumbnailFile, newClassPlanFile, adminId);
-        return GlobalResponseDto.success("프로그램 수정", updatedProgramId);
-    }
-
-    @Operation(summary = "프로그램 증빙 파일 삭제", description = "특정 증빙 파일을 DB와 S3에서 모두 삭제합니다.")
-    @DeleteMapping("/file/{programFileId}")
-    public GlobalResponseDto<Void> deleteProofFile(
-            @Parameter(description = "삭제할 ProgramFile ID") @PathVariable Long programFileId,
-            @Parameter(description = "관리자 ID", required = true) @RequestParam Long adminId
-    ) {
-        programService.deleteProofFile(programFileId, adminId);
-        return GlobalResponseDto.success("증빙 파일 삭제 완료", null);
-    }
-
-    @Operation(summary = "첨부 파일 다운로드", description = "강의계획서 또는 증빙 파일을 다운로드합니다. (백엔드 중계 방식)")
-    @GetMapping("/file/download")
-    public ResponseEntity<Resource> downloadFile(
-            @Parameter(description = "다운로드할 파일의 S3 URL (classPlanUrl 또는 ProgramFile.fileUrl)")
-            @RequestParam String fileUrl,
-
-            @Parameter(description = "다운로드 시 사용할 원본 파일명 (DB에 저장된 이름, 필수 아님)")
-            @RequestParam(required = false) String originalFileName
+            @RequestParam Long adminId
     ) throws IOException {
+        Long updatedId = programService.updateProgram(programId, requestDto, newThumbnailFile, newClassPlanFile, adminId);
+        return GlobalResponseDto.success("프로그램 수정 완료", updatedId);
+    }
 
+    @Operation(summary = "신청폼 항목 조회")
+    @GetMapping("/{programId}/form")
+    public GlobalResponseDto<List<ProgramResponseDto.FormItemResponse>> getProgramForm(@PathVariable Long programId) {
+        return GlobalResponseDto.success("신청폼 조회 성공", programService.getFormItems(programId));
+    }
+
+    @Operation(summary = "신청폼 항목만 개별 수정")
+    @PutMapping("/{programId}/form")
+    public GlobalResponseDto<Void> updateProgramForm(
+            @PathVariable Long programId,
+            @RequestBody List<ProgramRequestDto.FormItemRequest> additionalFields,
+            @RequestParam Long adminId
+    ) {
+        programService.updateFormItems(programId, additionalFields, adminId);
+        return GlobalResponseDto.success("신청폼 수정 완료", null);
+    }
+
+    @Operation(summary = "프로그램 상세 조회")
+    @GetMapping("/{programId}")
+    public GlobalResponseDto<ProgramResponseDto.DetailResponse> getProgramDetail(
+            @PathVariable Long programId,
+            @RequestParam(required = false) Long userId
+    ) {
+        return GlobalResponseDto.success("조회 성공", programService.getProgramDetail(programId, userId));
+    }
+
+    @Operation(summary = "전체 프로그램 목록 조회")
+    @GetMapping
+    public GlobalResponseDto<Page<ProgramResponseDto.ListResponse>> getProgramList(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String dongName,
+            @RequestParam(required = false) Long adminId
+    ) {
+        if (adminId != null) {
+            return GlobalResponseDto.success("관리자용 목록 조회 성공",
+                    programService.getProgramListByAdmin(adminId, pageable));
+        }
+
+        return GlobalResponseDto.success("목록 조회 성공",
+                programService.getProgramList(pageable, userId, dongName));
+    }
+
+    @Operation(summary = "첨부 파일 다운로드")
+    @GetMapping("/file/download")
+    public ResponseEntity<Resource> downloadFile(@RequestParam String fileUrl, @RequestParam(required = false) String originalFileName) throws IOException {
         FileDownloadInfo info = programService.downloadFile(fileUrl, originalFileName);
-
-        String encodedFileName = URLEncoder.encode(info.getOriginalFileName(), StandardCharsets.UTF_8.toString())
-                .replaceAll("\\+", "%20");
-
+        String encodedFileName = URLEncoder.encode(info.getOriginalFileName(), StandardCharsets.UTF_8).replaceAll("\\+", "%20");
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(info.getContentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
                 .body(info.getResource());
     }
 
-    @Operation(summary = "프로그램 전체 조회", description = "등록된 모든 프로그램을 페이징하여 조회합니다. 유저 주소에 따라 필터링되고, 좋아요 정보가 포함됩니다. (비로그인 가능)")
-    @GetMapping
-    public GlobalResponseDto<Page<ProgramResponseDto.ListResponse>> getProgramList(
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable,
-            @Parameter(description = "사용자 ID (지역 필터링 및 좋아요 여부 확인용)", required = false)
-            @RequestParam(required = false) Long userId
-    ) {
-        Page<ProgramResponseDto.ListResponse> programs = programService.getProgramList(pageable, userId);
-        return GlobalResponseDto.success("전체 프로그램 목록 조회 성공", programs);
+    @Operation(summary = "프로그램 삭제")
+    @DeleteMapping("/{programId}")
+    public GlobalResponseDto<Void> deleteProgram(@PathVariable Long programId, @RequestParam Long adminId) {
+        programService.deleteProgram(programId, adminId);
+        return GlobalResponseDto.success("프로그램 삭제 완료", null);
     }
 
-    @Operation(summary = "유형별 프로그램 목록 조회",
-            description = "프로그램 유형(유성형/자치형)과 사용자 주소에 따라 필터링된 목록을 조회합니다. (비로그인 가능)")
-    @GetMapping("/type/{type}")
-    public GlobalResponseDto<Page<ProgramResponseDto.ListResponse>> getProgramListByType(
-            @Parameter(description = "프로그램 유형 (YUSEONG 또는 AUTONOMOUS)")
-            @PathVariable ProgramType type,
-
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable,
-
-            @Parameter(description = "사용자 ID (지역 필터링 및 좋아요 여부 확인용)", required = false)
-            @RequestParam(required = false) Long userId
-    ) {
-        Page<ProgramResponseDto.ListResponse> programs =
-                programService.getProgramListByType(type, pageable, userId);
-
-        String typeName = type.name().equals("YUSEONG") ? "유성형" : "자치형";
-        return GlobalResponseDto.success(typeName + " 프로그램 목록 조회 성공", programs);
-    }
-
-    @Operation(summary = "프로그램 상세 조회", description = "특정 프로그램의 상세 정보를 조회합니다. 현재 사용자의 좋아요 여부가 포함됩니다. (비로그인 가능)")
-    @GetMapping("/{programId}")
-    public GlobalResponseDto<ProgramResponseDto.DetailResponse> getProgramDetail(
-            @Parameter(description = "조회할 프로그램 ID") @PathVariable Long programId,
-            @Parameter(description = "사용자 ID (좋아요 여부 확인용)", required = false)
-            @RequestParam(required = false) Long userId
-    ) {
-        ProgramResponseDto.DetailResponse program = programService.getProgramDetail(programId, userId);
-        return GlobalResponseDto.success("프로그램 상세 조회 성공", program);
-    }
-
-    @Operation(summary = "프로그램 좋아요", description = "특정 프로그램에 대한 좋아요를 등록하거나 취소합니다.")
-    @PostMapping("/{programId}/like")
-    public GlobalResponseDto<Boolean> toggleProgramLike(
-            @Parameter(description = "좋아요 대상 프로그램 ID") @PathVariable Long programId,
-            @Parameter(description = "좋아요를 실행하는 사용자 ID", required = true) @RequestParam Long userId
-    ) {
-        boolean isLiked = programService.toggleProgramLike(userId, programId);
-        String message = isLiked ? "프로그램을 찜했습니다." : "프로그램 찜을 취소했습니다.";
-        return GlobalResponseDto.success(message, isLiked);
-    }
-
-    @Operation(summary = "사용자 좋아요 목록 조회", description = "현재 사용자가 좋아요(찜)한 프로그램 목록을 페이징하여 조회합니다.")
-    @GetMapping("/my-likes")
-    public GlobalResponseDto<Page<ProgramResponseDto.ListResponse>> getLikedProgramList(
-            @Parameter(description = "사용자 ID", required = true) @RequestParam Long userId,
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable
-    ) {
-        Page<ProgramResponseDto.ListResponse> programs =
-                programService.getLikedProgramList(userId, pageable);
-
-        return GlobalResponseDto.success("사용자 찜 목록 조회 성공", programs);
-    }
-
-    @Operation(summary = "프로그램 좋아요 삭제 (찜 취소)", description = "찜 목록에서 특정 프로그램을 제거합니다. (toggleProgramLike 재활용)")
-    @DeleteMapping("/{programId}/like")
-    public GlobalResponseDto<Boolean> unlikeProgram(
-            @Parameter(description = "취소할 프로그램 ID") @PathVariable Long programId,
-            @Parameter(description = "사용자 ID", required = true) @RequestParam Long userId
-    ) {
-        boolean isLikedAfterToggle = programService.toggleProgramLike(userId, programId);
-
-        if (isLikedAfterToggle) {
-            return GlobalResponseDto.success("찜 취소 실패 (이미 찜이 취소되었거나 재등록됨)", false);
-        } else {
-            return GlobalResponseDto.success("찜 취소 완료", true);
-        }
-    }
 }

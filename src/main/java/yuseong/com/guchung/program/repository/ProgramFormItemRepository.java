@@ -1,9 +1,10 @@
 package yuseong.com.guchung.program.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 import yuseong.com.guchung.program.model.ProgramFormItem;
+import java.util.List;
 
-@Repository
 public interface ProgramFormItemRepository extends JpaRepository<ProgramFormItem, Long> {
+    List<ProgramFormItem> findByProgram_ProgramId(Long programId);
+    void deleteByProgram_ProgramId(Long programId);
 }

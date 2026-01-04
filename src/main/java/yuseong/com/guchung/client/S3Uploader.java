@@ -54,6 +54,15 @@ public class S3Uploader {
         }
     }
 
+    public String updateFile(MultipartFile newFile, String oldFileUrl, String dirName) throws IOException {
+        // 1. 기존 파일이 있다면 삭제
+        if (oldFileUrl != null && !oldFileUrl.isEmpty()) {
+            deleteFile(oldFileUrl);
+        }
+        // 2. 새 파일 업로드
+        return uploadFile(newFile, dirName);
+    }
+
     public S3Object getS3Object(String fileUrl) {
         String key = extractKeyFromUrl(fileUrl);
 
