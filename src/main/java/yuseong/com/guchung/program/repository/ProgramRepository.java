@@ -26,4 +26,10 @@ public interface ProgramRepository extends JpaRepository<Program, Long> {
             ProgramType programType, String dongName, Collection<RegionRestriction> regions, Pageable pageable);
 
     Page<Program> findByEduPlaceContaining(String eduPlace, Pageable pageable);
+
+    Page<Program> findByDongName(String dongName, Pageable pageable);
+
+    Page<Program> findByProgramType(ProgramType programType, Pageable pageable);
+
+    Page<Program> findByProgramTypeAndDongName(ProgramType programType, String dongName, Pageable pageable);
 }

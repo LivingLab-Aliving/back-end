@@ -19,12 +19,19 @@ import yuseong.com.guchung.auth.dto.KakaoUserInfoResponseDto;
 public class KakaoService {
 
     private String clientId;
+    private String clientSecret;
+    private String redirectUri;
     private final String KAUTH_TOKEN_URL_HOST;
     private final String KAUTH_USER_URL_HOST;
 
     @Autowired
-    public KakaoService(@Value("${spring.security.oauth2.client.registration.kakao.client-id}") String clientId) {
+    public KakaoService(
+            @Value("${spring.security.oauth2.client.registration.kakao.client-id}") String clientId,
+            @Value("${spring.security.oauth2.client.registration.kakao.client-secret}") String clientSecret,
+            @Value("${spring.security.oauth2.client.registration.kakao.redirect-uri}") String redirectUri) {
         this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.redirectUri = redirectUri;
         KAUTH_TOKEN_URL_HOST ="https://kauth.kakao.com";
         KAUTH_USER_URL_HOST = "https://kapi.kakao.com";
     }
@@ -37,7 +44,8 @@ public class KakaoService {
                 .header(HttpHeaders.CONTENT_TYPE, HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED.toString())
                 .bodyValue("grant_type=authorization_code" +
                         "&client_id=" + clientId +
-                        "&redirect_uri=http://localhost:3000/oauth" +
+                        "&client_secret=" + clientSecret +
+                        "&redirect_uri=" + redirectUri +
                         "&code=" + code)
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->

@@ -28,6 +28,7 @@ public class ProgramResponseDto {
         private LocalDateTime eduStartDate;
         private LocalDateTime eduEndDate;
         private String eduTime;
+        private String dongName;
         private int likeCount;
         private boolean isLiked;
 
@@ -44,6 +45,7 @@ public class ProgramResponseDto {
             this.eduStartDate = program.getEduStartDate();
             this.eduEndDate = program.getEduEndDate();
             this.eduTime = program.getEduTime();
+            this.dongName = program.getDongName();
         }
 
         public void setLikeInfo(int likeCount, boolean isLiked) {
@@ -77,6 +79,7 @@ public class ProgramResponseDto {
         private String classPlanOriginalName;
         private String institution;
         private String regionRestriction;
+        private String dongName;
         private String instructorName;
         private int likeCount;
         private boolean isLiked;
@@ -106,6 +109,7 @@ public class ProgramResponseDto {
             this.classPlanOriginalName = program.getClassPlanOriginalName();
             this.institution = program.getInstitution();
             this.regionRestriction = program.getRegionRestriction() != null ? program.getRegionRestriction().getDescription() : null;
+            this.dongName = program.getDongName();
             this.instructorName = program.getInstructor() != null ? program.getInstructor().getName() : null;
             this.likeCount = likeCount;
             this.isLiked = isLiked;

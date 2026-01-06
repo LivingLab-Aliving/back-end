@@ -145,6 +145,7 @@ public class Program {
         this.targetAudience = dto.getTargetAudience();
         this.instructor = instructor;
         this.programType = dto.getProgramType();
+        this.dongName = dto.getDongName();
 
         if (dto.getThumbnailUrl() != null) {
             this.thumbnailUrl = dto.getThumbnailUrl();
@@ -157,7 +158,7 @@ public class Program {
                    LocalDateTime recruitEndDate, String eduPlace, int capacity, TargetAudience targetAudience,
                    int eduPrice, String needs, String description, String info, String etc,
                    String classPlanUrl, String classPlanOriginalName, String institution,
-                   RegionRestriction regionRestriction, Admin admin, Instructor instructor,
+                   RegionRestriction regionRestriction, String dongName, Admin admin, Instructor instructor,
                    ProgramType programType) {
         this.programName = programName;
         this.thumbnailUrl = thumbnailUrl; // ✨ 반영
@@ -179,6 +180,7 @@ public class Program {
         this.classPlanOriginalName = classPlanOriginalName;
         this.institution = institution;
         this.regionRestriction = regionRestriction;
+        this.dongName = dongName;
         this.admin = admin;
         this.instructor = instructor;
         this.programType = programType;

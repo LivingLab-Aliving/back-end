@@ -19,6 +19,7 @@ import yuseong.com.guchung.program.dto.ProgramRequestDto;
 import yuseong.com.guchung.program.dto.ProgramResponseDto;
 import yuseong.com.guchung.program.model.*;
 import yuseong.com.guchung.program.model.type.ProgramFormType;
+import yuseong.com.guchung.program.model.type.ProgramType;
 import yuseong.com.guchung.program.repository.*;
 
 import java.io.IOException;
@@ -63,6 +64,7 @@ public class ProgramService {
                 .targetAudience(dto.getTargetAudience()).eduPrice(dto.getEduPrice())
                 .description(dto.getDescription()).institution(dto.getInstitution())
                 .regionRestriction(dto.getRegionRestriction()).programType(dto.getProgramType())
+                .dongName(dto.getDongName())
                 .classPlanUrl(planUrl).admin(admin).instructor(instructor).build();
 
         Program savedProgram = programRepository.save(program);
@@ -181,8 +183,23 @@ public class ProgramService {
     /**
      * 프로그램 전체 목록 조회
      */
-    public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId, String dongName) {
-        Page<Program> page = (dongName != null) ? programRepository.findByEduPlaceContaining(dongName, pageable) : programRepository.findAll(pageable);
+    public Page<ProgramResponseDto.ListResponse> getProgramList(Pageable pageable, Long userId, String dongName, ProgramType programType) {
+        Page<Program> page;
+        
+        if (dongName != null && programType != null) {
+            // dongName과 programType 둘 다 필터링
+            page = programRepository.findByProgramTypeAndDongName(programType, dongName, pageable);
+        } else if (dongName != null) {
+            // dongName만 필터링
+            page = programRepository.findByDongName(dongName, pageable);
+        } else if (programType != null) {
+            // programType만 필터링
+            page = programRepository.findByProgramType(programType, pageable);
+        } else {
+            // 필터 없이 전체 조회
+            page = programRepository.findAll(pageable);
+        }
+        
         return page.map(ProgramResponseDto.ListResponse::new);
     }
 

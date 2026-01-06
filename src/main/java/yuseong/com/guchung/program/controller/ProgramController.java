@@ -115,6 +115,7 @@ public class ProgramController {
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String dongName,
+            @RequestParam(required = false) ProgramType programType,
             @RequestParam(required = false) Long adminId
     ) {
         if (adminId != null) {
@@ -123,7 +124,7 @@ public class ProgramController {
         }
 
         return GlobalResponseDto.success("목록 조회 성공",
-                programService.getProgramList(pageable, userId, dongName));
+                programService.getProgramList(pageable, userId, dongName, programType));
     }
 
     @Operation(summary = "첨부 파일 다운로드")
